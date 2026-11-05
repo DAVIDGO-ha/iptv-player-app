@@ -1,0 +1,32 @@
+workflows:
+  ios-unsigned:
+    name: IPTV PLAYER iOS (unsigned)
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+    environment:
+      node: 20
+      xcode: latest
+      cocoapods: default
+    scripts:
+      - name: Unpack source
+        script: unzip -o app-source.zip -d .
+      - name: Install dependencies
+        script: cd IPTV-PLAYER && npm install
+      - name: Build web
+        script: cd IPTV-PLAYER && npm run build
+      - name: Add iOS platform
+        script: cd IPTV-PLAYER && npx cap add ios && npx cap sync ios
+      - name: CocoaPods install
+        script: cd IPTV-PLAYER/ios/App && pod install
+      - name: Build unsigned IPA
+        script: |
+          set -e
+          cd IPTV-PLAYER/ios/App
+          xcodebuild -workspace App.xcworkspace -scheme App -configuration Release \
+            -sdk iphoneos -derivedDataPath build CODE_SIGNING_ALLOWED=NO
+          cd build/Build/Products/Release-iphoneos
+          rm -rf Payload && mkdir Payload
+          cp -R App.app Payload/App.app
+          zip -r "$CM_BUILD_DIR/IPTV-PLAYER.ipa" Payload
+    artifacts:
+      - IPTV-PLAYER.ipa
