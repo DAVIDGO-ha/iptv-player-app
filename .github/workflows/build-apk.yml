@@ -1,0 +1,40 @@
+name: Build APK
+on:
+  push:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Unpack source
+        run: unzip -o app-source.zip -d src
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - name: Install deps
+        run: cd src/IPTV-PLAYER && npm install
+      - name: Build web
+        run: cd src/IPTV-PLAYER && npm run build
+      - name: Add Android platform
+        run: cd src/IPTV-PLAYER && npx cap add android && npx cap sync android
+      - name: Build APK
+        run: cd src/IPTV-PLAYER/android && chmod +x gradlew && ./gradlew assembleDebug --no-daemon
+      - name: Rename APK
+        run: cp src/IPTV-PLAYER/android/app/build/outputs/apk/debug/app-debug.apk IPTV-PLAYER.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: iptv-player-apk
+          path: IPTV-PLAYER.apk
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete latest -y --cleanup-tag || true
+          gh release create latest IPTV-PLAYER.apk -t "IPTV PLAYER APK" -n "Install IPTV-PLAYER.apk on your Android phone."
