@@ -6,6 +6,9 @@ import { NeonTiles, ArtTV, ArtReel, ArtClap, ArtBall } from './Tiles'
 import { SPORT_RE } from './Live'
 import type { Item } from '../lib/types'
 
+// Not films: sports replays, music, 24/7 channels… (kept out of the home "movies" rails)
+const NOT_FILM = /\b(replay|highlights?|match|race|grand prix|concert|music|radio|24\/7|live events?|wrestling)\b/i
+
 export function Loading() {
   const app = useApp()
   return (
@@ -46,14 +49,21 @@ export function Home() {
   const movies = app.visible('movie')
   const series = app.visible('series')
 
-  // Big panels: load the first movie & series category so the home rails have content
+  // Big panels: load a real movie / series category for the home rails —
+  // skip sports (Formula 1, football replays…), adult and locked categories, prefer "new / latest / 2026…"
+  const pickCat = (cats: typeof movies.cats) => {
+    const ok = cats.filter((x) => !app.isLocked(x) && !x.adult && !SPORT_RE.test(x.name) && !NOT_FILM.test(x.name))
+    const year = new Date().getFullYear()
+    const fresh = new RegExp(`\\b(new|latest|recent|recently added|just added|neu|nouveaut|novedad|${year}|${year - 1})\\b`, 'i')
+    return ok.find((x) => fresh.test(x.name)) || ok.find((x) => /movie|film|cinema|kino|vod|action|box ?office|netflix|blockbuster/i.test(x.name)) || ok[0] || cats.find((x) => !app.isLocked(x))
+  }
   useEffect(() => {
     if (movies.lazy && !movies.items.length) {
-      const c = movies.cats.find((x) => !app.isLocked(x))
+      const c = pickCat(movies.cats)
       if (c) app.loadCat('movie', c.id)
     }
     if (series.lazy && !series.items.length) {
-      const c = series.cats.find((x) => !app.isLocked(x))
+      const c = pickCat(series.cats)
       if (c) app.loadCat('series', c.id)
     }
   }, [movies.lazy, series.lazy])
@@ -70,8 +80,14 @@ export function Home() {
   const favLive = app.favs.live.map((id) => byId['live:' + id]).filter(Boolean)
   const totalMovies = movies.lazy ? movies.cats.length : movies.items.length
   const totalSeries = series.lazy ? series.cats.length : series.items.length
-  const newMovies = useMemo(() => [...movies.items].sort((a, b) => (b.added || 0) - (a.added || 0)).slice(0, 24), [movies])
-  const topMovies = useMemo(() => movies.items.filter((m) => (m.rating || 0) >= 7).sort((a, b) => (b.rating || 0) - (a.rating || 0)).slice(0, 24), [movies])
+  // sports replays (F1, football…) don't belong in "Latest & Popular" movies
+  const sportCats = useMemo(() => new Set(movies.cats.filter((c) => SPORT_RE.test(c.name) || NOT_FILM.test(c.name)).map((c) => c.id)), [movies.cats])
+  const realMovies = useMemo(() => {
+    const r = movies.items.filter((m) => !sportCats.has(m.categoryId) && !SPORT_RE.test(m.name))
+    return r.length ? r : movies.items
+  }, [movies, sportCats])
+  const newMovies = useMemo(() => [...realMovies].sort((a, b) => (b.added || 0) - (a.added || 0)).slice(0, 24), [realMovies])
+  const topMovies = useMemo(() => realMovies.filter((m) => (m.rating || 0) >= 7).sort((a, b) => (b.rating || 0) - (a.rating || 0)).slice(0, 24), [realMovies])
   const newSeries = useMemo(() => [...series.items].sort((a, b) => (b.added || 0) - (a.added || 0)).slice(0, 24), [series])
   const hero = useMemo(() => {
     const pool = (topMovies.length ? topMovies : newMovies).filter((m) => m.logo).slice(0, 8)
