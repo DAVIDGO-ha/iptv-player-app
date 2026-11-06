@@ -54,8 +54,12 @@ export type CloudPlaylist = { id: string; name: string; type: 'xtream' | 'm3u'; 
 export async function fetchCloudPlaylists(): Promise<CloudPlaylist[]> {
   await registerDevice().catch(() => {})
   const j = await call(`/api/device/playlists?id=${encodeURIComponent(deviceId())}&key=${deviceKey()}`)
+  // Blocked from the admin dashboard → remember it (works offline too) until unblocked
+  write('ip.blocked', !!j?.blocked)
+  window.dispatchEvent(new Event('ip-blocked'))
   return Array.isArray(j?.playlists) ? j.playlists : []
 }
+export const isBlocked = () => !!read<boolean>('ip.blocked', false)
 
 export const toPlaylist = (c: CloudPlaylist): Playlist => ({
   id: 'cloud-' + c.id,
