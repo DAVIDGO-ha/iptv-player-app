@@ -26,7 +26,8 @@ function PlayerView({ req }: { req: PlayRequest }) {
   const vod = !live
   const root = useRef<HTMLDivElement>(null)
   const video = useRef<HTMLVideoElement>(null)
-  const { engine, error, tracksTick, retry, noAudio } = useEngine(video, req.url, live)
+  const { engine, error, tracksTick, retry, noAudio: noSnd, noVideo } = useEngine(video, req.url, live)
+  const noAudio = noSnd || noVideo
 
   const [playing, setPlaying] = useState(false)
   const [waiting, setWaiting] = useState(true)
@@ -67,13 +68,14 @@ function PlayerView({ req }: { req: PlayRequest }) {
   }, [req.url])
   const autoPro = useRef('')
   useEffect(() => {
-    if (!noAudio) return
+    // Android app: anything the built-in engine can't play (no sound, no picture, unsupported format) → Pro player
+    if (!noAudio && !error) return
     if (hasNativePro() && autoPro.current !== req.url) {
       autoPro.current = req.url
-      app.toast('This sound is Dolby/DTS — switching to the Pro player')
+      app.toast(error ? 'Opening in the Pro player…' : noVideo ? 'This picture format needs the Pro player — switching' : 'This sound is Dolby/DTS — switching to the Pro player')
       openPro()
     }
-  }, [noAudio])
+  }, [noAudio, error])
 
   // ——— UI auto-hide ———
   const poke = useCallback(() => {
@@ -407,7 +409,7 @@ function PlayerView({ req }: { req: PlayRequest }) {
       )}
       {noAudio && !error && (
         <button className="p-noaudio glass" onClick={openPro}>
-          <Icon n="mute" s={18} /> No sound? This uses Dolby/DTS audio — <b>{canPro() ? 'play with Pro player' : 'open in VLC'}</b>
+          <Icon n={noVideo ? 'tv' : 'mute'} s={18} /> {noVideo ? 'No picture? This video format needs' : 'No sound? This uses Dolby/DTS audio —'} <b>{canPro() ? 'the Pro player' : 'VLC'}</b>
         </button>
       )}
       {num && <div className="p-num glass">{num}</div>}
