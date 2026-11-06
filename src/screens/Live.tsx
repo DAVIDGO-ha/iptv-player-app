@@ -7,6 +7,7 @@ import { streamFor } from '../lib/catalog'
 import { epgCached, nowNext, programmesFor } from '../lib/epg'
 import { timeshiftUrl, xtArchive, xtShortEpg } from '../lib/xtream'
 import { proxied } from '../lib/net'
+import { playPro } from '../lib/pro'
 import type { Item, Programme } from '../lib/types'
 
 export const useWide = () => {
@@ -143,7 +144,7 @@ function Preview({ ch, list }: { ch: Item; list: Item[] }) {
   const app = useApp()
   const v = useRef<HTMLVideoElement>(null)
   const url = app.active && !app.player ? streamFor(app.active, ch) : '' // pause preview while full player is open
-  const { error, engine } = useEngine(v, url, true)
+  const { error, engine, noAudio } = useEngine(v, url, true)
   const [epg, setEpg] = useState<Programme[]>(() => programmesFor(epgCached(app.active!.id), ch.epgId, ch.name))
   const [catchup, setCatchup] = useState(false)
   useEffect(() => {
@@ -164,6 +165,11 @@ function Preview({ ch, list }: { ch: Item; list: Item[] }) {
           </div>
         )}
         {error && <div className="p-center small muted pad">{error}</div>}
+        {noAudio && !error && (
+          <button className="noaudio-chip" onClick={(e) => (e.stopPropagation(), playPro({ url, title: ch.name, live: true }))}>
+            <Icon n="mute" s={15} /> No sound? Pro player
+          </button>
+        )}
         <span className="expand">
           <Icon n="full" s={18} />
         </span>
