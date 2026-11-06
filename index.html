@@ -15,9 +15,29 @@
     <link rel="icon" href="./icons/icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="./icons/icon-192.png" />
     <link rel="stylesheet" href="./app.css" />
+    <style>
+      html, body { background: #0a0c2a; color: #fff; }
+      #boot { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; font: 20px Arial, sans-serif; text-align: center; padding: 24px; }
+      #boot small { display: block; margin-top: 14px; font-size: 14px; color: #ff8a8a; max-width: 900px; word-break: break-word; }
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root"><div id="boot">Loading IPTV PLAYER…<small id="boot-err"></small></div></div>
+    <script>
+      // Old TV browsers: show what went wrong instead of a blank screen
+      (function () {
+        function show(m) {
+          var e = document.getElementById('boot-err')
+          if (e) e.textContent = (e.textContent ? e.textContent + ' | ' : '') + m
+        }
+        window.onerror = function (msg, src, line) {
+          show('Error: ' + msg + ' (' + String(src || '').split('/').pop() + ':' + line + ')')
+        }
+        setTimeout(function () {
+          if (document.getElementById('boot')) show('Not started. Device: ' + navigator.userAgent)
+        }, 12000)
+      })()
+    </script>
     <script src="./app.js"></script>
   </body>
 </html>
