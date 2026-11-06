@@ -18,7 +18,10 @@ try {
 
 // TV / big screen detection → larger UI
 const ua = navigator.userAgent
-if (/SMART-TV|Tizen|Web0S|webOS|NetCast|AFT|BRAVIA|Android TV|GoogleTV|CrKey|HbbTV|VIDAA/i.test(ua)) document.documentElement.classList.add('tv')
+const tvUA = /SMART-TV|SmartTV|Tizen|Web0S|webOS|NetCast|AFT|BRAVIA|Android TV|GoogleTV|CrKey|HbbTV|VIDAA|Hisense|Philips|TCL|Roku|Vizio|Panasonic|Viera|Opera TV|AQUOS|MiBOX|SHIELD|Chromecast/i.test(ua)
+// Android TV boxes of any brand: Android, big screen, no touch screen
+const tvBox = /Android/i.test(ua) && navigator.maxTouchPoints === 0 && Math.max(screen.width, screen.height) >= 960
+if (tvUA || tvBox) document.documentElement.classList.add('tv')
 
 initSpatialNav()
 
