@@ -1,70 +1,134 @@
-name: Build Android APK (phone, Android TV, Firestick)
-
+name: Build IPTV PLAYER (all devices)
+# Every push builds every version and publishes them to Releases › latest:
+#   IPTV-PLAYER.apk                  Android phones, tablets, Android TV / Google TV (Sony, TCL, Philips, Hisense,
+#                                    Xiaomi, Nvidia Shield…), Firestick / Fire TV, Android TV boxes
+#   IPTV-PLAYER-Windows.exe          Windows 7/10/11 (32 + 64-bit)
+#   IPTV-PLAYER-Mac.dmg              macOS (Intel + Apple Silicon)
+#   IPTV-PLAYER-Linux.AppImage       Linux
+#   IPTV-PLAYER-LG-webOS.ipk         LG Smart TV (webOS)
+#   IPTV-PLAYER-Samsung-Tizen.zip    Samsung Smart TV (open in Tizen Studio)
+#   IPTV-PLAYER-Web.zip              Any other Smart TV / browser (host it on your website)
 on:
   push:
-    branches: [main]
   workflow_dispatch:
-
 permissions:
   contents: write
 
+concurrency:
+  group: build-all
+  cancel-in-progress: true
+
+env:
+  APP: .
+
 jobs:
-  apk:
+  web:
+    name: Web, LG & Samsung
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: 17
-
+        with: { node-version: 20 }
       - name: Build web app
         env:
-          SITE_URL: ${{ vars.SITE_URL }} # optional: GitHub › Settings › Variables › SITE_URL = your website
+          SITE_URL: ${{ vars.SITE_URL }}
+        run: cd $APP && npm install && npm run build
+      - name: Samsung Tizen package folder
         run: |
+          mkdir -p out tizen && cp -r $APP/dist/* tizen/ && cp $APP/platforms/tizen/config.xml tizen/
+          cd tizen && zip -qr ../out/IPTV-PLAYER-Samsung-Tizen.zip .
+      - name: LG webOS .ipk
+        run: |
+          npm install -g @webos-tools/cli
+          mkdir -p webos && cp -r $APP/dist/* webos/ && cp $APP/platforms/webos/appinfo.json webos/
+          ares-package webos -o webos-out --no-minify
+          cp webos-out/*.ipk out/IPTV-PLAYER-LG-webOS.ipk
+      - name: Web player zip
+        run: cd $APP/dist && zip -qr $GITHUB_WORKSPACE/out/IPTV-PLAYER-Web.zip .
+      - uses: actions/upload-artifact@v4
+        with: { name: web, path: out/* }
+
+  android:
+    name: Android (phone, TV, Firestick)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: 17 }
+      - name: Install
+        run: |
+          cd $APP
           npm install
-          npm run build
-
-      - name: Create Android project (Capacitor)
-        run: |
           npm install @capacitor/core@6 @capacitor/cli@6 @capacitor/android@6 @capacitor/app@6
-          npx cap add android
-          npx cap sync android
-
-      - name: Android TV / Firestick support + http streams
+      - name: Build web
+        env:
+          SITE_URL: ${{ vars.SITE_URL }}
+        run: cd $APP && npm run build
+      - name: Android project
+        run: cd $APP && npx cap add android && npx cap sync android
+      - name: TV + Firestick + http streams
         run: |
+          cd $APP
           M=android/app/src/main/AndroidManifest.xml
-          # allow http IPTV servers
           sed -i 's|<application|<application android:usesCleartextTraffic="true" android:banner="@drawable/banner"|' $M
-          # show the app on Android TV / Fire TV home screens
           sed -i 's|<category android:name="android.intent.category.LAUNCHER" />|<category android:name="android.intent.category.LAUNCHER" />\n                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />|' $M
-          # don't require a touchscreen (TVs have none)
-          sed -i 's|<uses-permission android:name="android.permission.INTERNET" />|<uses-permission android:name="android.permission.INTERNET" />\n    <uses-feature android:name="android.hardware.touchscreen" android:required="false" />\n    <uses-feature android:name="android.software.leanback" android:required="false" />|' $M
+          sed -i 's|<uses-permission android:name="android.permission.INTERNET" />|<uses-permission android:name="android.permission.INTERNET" />\n    <uses-feature android:name="android.hardware.touchscreen" android:required="false" />\n    <uses-feature android:name="android.software.leanback" android:required="false" />\n    <uses-feature android:name="android.hardware.faketouch" android:required="false" />|' $M
           mkdir -p android/app/src/main/res/drawable
           cp platforms/android/banner.png android/app/src/main/res/drawable/banner.png
           cat $M
-
       - name: Build APK
-        run: |
-          cd android
-          chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon
-          cp app/build/outputs/apk/debug/app-debug.apk ../IPTV-PLAYER.apk
+        run: cd $APP/android && chmod +x gradlew && ./gradlew assembleDebug --no-daemon
+      - run: mkdir -p out && cp $APP/android/app/build/outputs/apk/debug/app-debug.apk out/IPTV-PLAYER.apk
+      - uses: actions/upload-artifact@v4
+        with: { name: android, path: out/* }
 
+  desktop:
+    name: Desktop (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - name: Build
+        shell: bash
+        env:
+          SITE_URL: ${{ vars.SITE_URL }}
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cd $APP
+          npm install
+          npm install --no-save electron@31 electron-builder@24
+          npm run build
+          npx electron-builder --config electron-builder.json --publish never
+          mkdir -p $GITHUB_WORKSPACE/out
+          cp release/IPTV-PLAYER-* $GITHUB_WORKSPACE/out/ 2>/dev/null || true
+          rm -f $GITHUB_WORKSPACE/out/*.blockmap
+          ls -la $GITHUB_WORKSPACE/out
       - uses: actions/upload-artifact@v4
         with:
-          name: IPTV-PLAYER-apk
-          path: IPTV-PLAYER.apk
+          name: desktop-${{ matrix.os }}
+          path: out/*
 
-      # Public download link for the Downloader app on Firestick:
-      # https://github.com/<you>/<repo>/releases/latest/download/IPTV-PLAYER.apk
-      - name: Publish release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: latest
-          name: IPTV PLAYER (latest build)
-          make_latest: true
-          files: IPTV-PLAYER.apk
+  release:
+    name: Publish to Releases › latest
+    needs: [web, android, desktop]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with: { path: dist, merge-multiple: true }
+      - name: Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ls -la dist
+          gh release delete latest -y --cleanup-tag || true
+          gh release create latest dist/* -t "IPTV PLAYER (all devices)" -n "Android phone/TV/Firestick: IPTV-PLAYER.apk · Windows: IPTV-PLAYER-Windows.exe · Mac: IPTV-PLAYER-Mac.dmg · Linux: IPTV-PLAYER-Linux.AppImage · LG TV: IPTV-PLAYER-LG-webOS.ipk · Samsung TV: IPTV-PLAYER-Samsung-Tizen.zip · Other TVs/browsers: IPTV-PLAYER-Web.zip"
