@@ -9,6 +9,7 @@ import { idbDel } from '../lib/idb'
 import { loadEpg } from '../lib/epg'
 import type { Kind } from '../lib/types'
 import { canPro } from '../lib/pro'
+import { COUNTRIES } from '../lib/bgflag'
 
 const ACCENTS = ['#FF2D3A', '#0A84FF', '#5E5CE6', '#BF5AF2', '#FF375F', '#FF9F0A', '#30D158', '#FFFFFF']
 export const VERSION = '1.0.0'
@@ -99,8 +100,15 @@ export function Settings() {
       </Group>
 
       <Group title="Country">
-        <Row icon="tv" label="Background" sub="Living-room picture with the UK or German flag (Auto = by your country)">
-          <Segmented value={s.region || 'auto'} onChange={(v) => set({ region: v })} options={[{ v: 'auto', l: 'Auto' }, { v: 'uk', l: 'UK' }, { v: 'de', l: 'Germany' }]} />
+        <Row icon="tv" label="Background flag" sub="The flag in the background picture (Auto = your country)">
+          <select className="select" value={s.region || 'auto'} onChange={(e) => set({ region: e.target.value })}>
+            <option value="auto">Auto</option>
+            {COUNTRIES.map(([c, n]) => (
+              <option key={c} value={c}>
+                {n}
+              </option>
+            ))}
+          </select>
         </Row>
       </Group>
 
