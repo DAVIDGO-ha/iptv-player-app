@@ -2848,3 +2848,23 @@ html.tv .neon-tile .nt-label {
   background: linear-gradient(180deg, #ff4b55, #c3071a);
   box-shadow: 0 0 0 1px rgba(255, 45, 58, 0.5), 0 0 40px -6px #ff2d3a;
 }
+.blocked-contact {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px 22px;
+  border-radius: 18px;
+  background: rgba(255, 45, 58, 0.12);
+  border: 1px solid rgba(255, 45, 58, 0.45);
+  font-size: clamp(16px, 2.4vh, 24px);
+}
+.blocked-contact div {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+.blocked-contact b {
+  color: #fff;
+  letter-spacing: 0.02em;
+}
