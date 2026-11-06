@@ -4,6 +4,7 @@ import { StoreProvider } from './store'
 import { App } from './App'
 import { initSpatialNav } from './ui'
 import './styles.css'
+import { initCountryBackground } from './lib/bgflag'
 
 // Samsung Tizen: register remote media / colour keys
 try {
@@ -48,5 +49,7 @@ createRoot(document.getElementById('root')!).render(
     <App />
   </StoreProvider>
 )
+
+initCountryBackground() // UK flag for the UK, German flag for Germany
 
 if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('./sw.js').catch(() => {})
