@@ -2,7 +2,7 @@
   "appId": "com.iptvplayer.app",
   "productName": "IPTV PLAYER",
   "directories": { "output": "release" },
-  "files": ["dist/**", "platforms/electron/main.cjs", "!node_modules/**"],
+  "files": ["dist/**", "platforms/electron/main.cjs", "platforms/electron/preload.cjs", "!node_modules/**"],
   "extraMetadata": { "main": "platforms/electron/main.cjs", "type": "commonjs" },
   "npmRebuild": false,
   "win": { "target": [{ "target": "nsis", "arch": ["x64", "ia32"] }], "icon": "public/icons/icon-512.png", "artifactName": "IPTV-PLAYER-Windows.${ext}" },
