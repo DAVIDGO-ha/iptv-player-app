@@ -7,7 +7,7 @@ import { streamFor } from '../lib/catalog'
 import { epgCached, nowNext, programmesFor } from '../lib/epg'
 import { timeshiftUrl, xtArchive, xtShortEpg } from '../lib/xtream'
 import { proxied } from '../lib/net'
-import { playPro } from '../lib/pro'
+import { playPro, proPreferred } from '../lib/pro'
 import type { Item, Programme } from '../lib/types'
 
 export const useWide = () => {
@@ -39,6 +39,7 @@ export function Live({ sports = false }: { sports?: boolean }) {
   const [sort, setSort] = useState('num')
   const [sel, setSel] = useState<Item | null>(null)
   const wide = useWide()
+  const preview = wide && !proPreferred() // Firestick / Android TV: channels open straight in the Pro player
   useEffect(() => localStorage.setItem(catKey, g.cat), [g.cat])
   const title = sports ? 'Sports' : 'Live TV'
 
@@ -69,7 +70,7 @@ export function Live({ sports = false }: { sports?: boolean }) {
   ]
 
   const open = (ch: Item) => {
-    if (wide && sel?.id !== ch.id) setSel(ch)
+    if (preview && sel?.id !== ch.id) setSel(ch)
     else playLive(app, ch, list)
   }
 
@@ -130,7 +131,7 @@ export function Live({ sports = false }: { sports?: boolean }) {
           {!list.length && <Empty icon="search" title={g.cat === 'fav' ? 'No favorite channels yet' : 'No channels'} text={g.cat === 'fav' ? 'Right-click or long-press a channel to add it.' : undefined} />}
         </div>
       </section>
-      {wide && (
+      {preview && (
         <section className="live-preview">
           {sel ? <Preview key={sel.id} ch={sel} list={list} /> : <Empty icon="tv" title="Select a channel" text="Choose once to preview, again to watch full screen." />}
         </section>
