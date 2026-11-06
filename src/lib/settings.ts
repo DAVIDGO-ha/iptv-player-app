@@ -18,6 +18,7 @@ export type Settings = {
   pin: string
   hideAdult: boolean
   language: string
+  engine: 'auto' | 'pro' | 'builtin' // auto = Pro player on Firestick / Android TV
 }
 
 export const DEFAULTS: Settings = {
@@ -39,6 +40,7 @@ export const DEFAULTS: Settings = {
   pin: '0000',
   hideAdult: true,
   language: 'en',
+  engine: 'auto',
 }
 
 const KEY = 'ip.settings'
