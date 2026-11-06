@@ -23,6 +23,18 @@ const tvUA = /SMART-TV|SmartTV|Tizen|Web0S|webOS|NetCast|AFT|BRAVIA|Android TV|G
 const tvBox = /Android/i.test(ua) && navigator.maxTouchPoints === 0 && Math.max(screen.width, screen.height) >= 960
 if (tvUA || tvBox) document.documentElement.classList.add('tv')
 
+// Phone app: always landscape (set in the Android manifest) and the same layout as the laptop app,
+// just smaller — like IBO Player / IPTV Smarters.
+const native = !!(window as any).Capacitor?.isNativePlatform?.()
+const phone = native && !tvUA && !tvBox && navigator.maxTouchPoints > 0 && Math.max(screen.width, screen.height) < 1100
+if (phone) {
+  document.documentElement.classList.add('phone-land')
+  document.querySelector('meta[name=viewport]')?.setAttribute('content', 'width=1024, viewport-fit=cover')
+  try {
+    ;(screen.orientation as any)?.lock?.('landscape').catch(() => {})
+  } catch {}
+}
+
 initSpatialNav()
 
 // Android / Fire TV back button → same as Escape (closes player, menus, goes back)
