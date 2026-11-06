@@ -1,10 +1,12 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useApp } from '../store'
 import { Chips, Empty, Icon, Img, Spinner, useProgressive } from '../ui'
 import { Header, Poster, SortSelect, sortItems, useGuardedCategory } from './common'
 import { episodeStream, streamFor } from '../lib/catalog'
 import { xtSeriesInfo, xtVodInfo } from '../lib/xtream'
-import type { Episode, Item, Kind } from '../lib/types'
+import { useEngine } from '../player/useEngine'
+import { useWide } from './Live'
+import type { Episode, Item, Kind, PlayRequest } from '../lib/types'
 
 export function Library({ kind }: { kind: 'movie' | 'series' }) {
   const app = useApp()
@@ -34,6 +36,10 @@ export function Library({ kind }: { kind: 'movie' | 'series' }) {
   }, [items, g.cat, sort, q, app.favs, app.favItems])
   const { shown, sentinel } = useProgressive(list, 48)
   const title = kind === 'movie' ? 'Movies' : 'Series'
+  const wide = useWide()
+  const [sel, setSel] = useState<Item | null>(null)
+  // Big screens (laptop, TV, phone in landscape): play inside the dashboard, keep the list visible
+  const open = (i: Item) => (wide ? setSel(i) : app.nav.push(kind, { id: i.id, item: i }))
   const prog = (i: Item) => {
     const h = app.history['mv:' + i.id]
     return h?.dur ? (h.pos || 0) / h.dur : undefined
@@ -41,7 +47,7 @@ export function Library({ kind }: { kind: 'movie' | 'series' }) {
 
   if (!items.length && !cats.length && !lazy) return <Empty icon={kind} title={`No ${title.toLowerCase()}`} text={`This playlist doesn’t include ${title.toLowerCase()}.`} />
 
-  return (
+  const page = (
     <div className="page">
       <Header title={title} sub={busy ? 'Loading…' : `${list.length.toLocaleString()} titles${lazy && q ? ' in this category' : ''}`}>
         <div className="search-box">
@@ -61,7 +67,7 @@ export function Library({ kind }: { kind: 'movie' | 'series' }) {
       />
       <div className="poster-grid">
         {shown.map((i) => (
-          <Poster key={i.id} item={i} progress={kind === 'movie' ? prog(i) : undefined} onClick={() => app.nav.push(kind, { id: i.id, item: i })} />
+          <Poster key={i.id} item={i} progress={kind === 'movie' ? prog(i) : undefined} active={sel?.id === i.id} onClick={() => open(i)} />
         ))}
       </div>
       {sentinel}
@@ -72,6 +78,64 @@ export function Library({ kind }: { kind: 'movie' | 'series' }) {
       )}
       {!busy && !list.length && <Empty icon="search" title="Nothing here" text={g.cat === 'fav' ? 'Add titles to My List to see them here.' : undefined} />}
       {g.pin}
+    </div>
+  )
+  if (!wide) return page
+  return (
+    <div className="vod-split">
+      <div className="vod-left">{page}</div>
+      <section className="vod-pane">
+        {sel ? (
+          kind === 'movie' ? <MovieDetail key={sel.id} id={sel.id} given={sel} pane /> : <SeriesDetail key={sel.id} id={sel.id} given={sel} pane />
+        ) : (
+          <Empty icon={kind} title={kind === 'movie' ? 'Pick a movie' : 'Pick a series'} text="It plays right here — keep browsing while you watch. Use Full Screen any time." />
+        )}
+      </section>
+    </div>
+  )
+}
+
+// Small player inside the dashboard (movies / series). Full Screen continues from the same second.
+export function InlinePlayer({ req }: { req: PlayRequest }) {
+  const app = useApp()
+  const v = useRef<HTMLVideoElement>(null)
+  const live = req.kind === 'live'
+  const { error, engine } = useEngine(v, app.player ? '' : req.url, live) // pause while the full player is open
+  const seeked = useRef(false)
+  useEffect(() => {
+    seeked.current = false
+  }, [req.url])
+  const save = () => {
+    const el = v.current
+    if (!el || !req.historyKey || !req.history || live || el.currentTime < 3) return
+    app.saveHistory({ key: req.historyKey, ...req.history, pos: el.currentTime, dur: el.duration || 0 })
+  }
+  useEffect(() => {
+    const i = setInterval(save, 8000)
+    return () => (clearInterval(i), save())
+  }, [req.url])
+  const full = () => (save(), app.play({ ...req, startAt: live ? 0 : v.current?.currentTime || req.startAt || 0 }))
+  return (
+    <div className="preview-video inline-player" onDoubleClick={full}>
+      <video
+        ref={v}
+        playsInline
+        autoPlay
+        controls
+        onLoadedMetadata={(e) => {
+          if (!seeked.current && req.startAt) e.currentTarget.currentTime = req.startAt
+          seeked.current = true
+        }}
+      />
+      {!engine && !error && (
+        <div className="p-center">
+          <Spinner />
+        </div>
+      )}
+      {error && <div className="p-center small muted pad">{error}</div>}
+      <button className="expand" onClick={full} aria-label="Full Screen">
+        <Icon n="full" s={18} />
+      </button>
     </div>
   )
 }
@@ -95,8 +159,10 @@ function FavBtn({ kind, id, item }: { kind: Kind; id: string; item?: Item }) {
   )
 }
 
-export function MovieDetail({ id, given }: { id: string; given?: Item }) {
+export function MovieDetail({ id, given, pane }: { id: string; given?: Item; pane?: boolean }) {
   const app = useApp()
+  const [inline, setInline] = useState<PlayRequest | null>(null)
+  const autoStarted = useRef(false)
   const known = app.findItem('movie', id) || given
   const [info, setInfo] = useState<any>(null)
   const [md, setMd] = useState<any>(null)
@@ -115,8 +181,7 @@ export function MovieDetail({ id, given }: { id: string; given?: Item }) {
   if (!item) return info ? <Empty title="Movie not found" /> : <div className="center-fill"><Spinner size={40} /></div>
   const h = app.history['mv:' + id]
   const resumeAt = h?.dur && h.pos && h.pos / h.dur < 0.95 ? h.pos : 0
-  const play = (from = 0) =>
-    app.play({
+  const makeReq = (from = 0): PlayRequest => ({
       kind: 'movie',
       title: item.name,
       subtitle: [info?.releasedate?.slice(0, 4) || item.year, info?.genre].filter(Boolean).join(' · '),
@@ -126,17 +191,28 @@ export function MovieDetail({ id, given }: { id: string; given?: Item }) {
       history: { kind: 'movie', id, name: item.name, image: item.logo },
       startAt: from,
     })
+  const play = (from = 0) => (pane ? setInline(makeReq(from)) : app.play(makeReq(from)))
+  // In the dashboard the movie starts playing as soon as it is picked
+  if (pane && !autoStarted.current && app.active) {
+    autoStarted.current = true
+    const first = makeReq(resumeAt || 0)
+    setTimeout(() => setInline((x) => x || first))
+  }
   const back = Array.isArray(info?.backdrop_path) ? info.backdrop_path[0] : info?.backdrop_path
   const trailer = info?.youtube_trailer
   return (
-    <div className="detail">
-      <Backdrop src={back || item.logo} />
+    <div className={'detail' + (pane ? ' pane' : '')}>
+      {!pane && <Backdrop src={back || item.logo} />}
       <div className="detail-body">
-        <button className="icon-btn glass-btn" onClick={app.nav.back} aria-label="Back">
-          <Icon n="back" />
-        </button>
+        {pane ? (
+          inline && <InlinePlayer req={inline} />
+        ) : (
+          <button className="icon-btn glass-btn" onClick={app.nav.back} aria-label="Back">
+            <Icon n="back" />
+          </button>
+        )}
         <div className="detail-main">
-          <Img className="detail-poster" src={info?.movie_image || item.logo} alt={item.name} />
+          {!pane && <Img className="detail-poster" src={info?.movie_image || item.logo} alt={item.name} />}
           <div className="detail-text">
             <h1 className="hero-title">{info?.name || item.name}</h1>
             <div className="meta-line">
@@ -151,9 +227,15 @@ export function MovieDetail({ id, given }: { id: string; given?: Item }) {
               {info?.video?.height && <span className="badge">{info.video.height >= 2000 ? '4K' : info.video.height >= 1000 ? 'HD' : 'SD'}</span>}
             </div>
             <div className="row gap wrap">
-              <button className="btn primary xl" onClick={() => play(resumeAt || 0)} data-autofocus>
-                <Icon n="play" fill s={18} /> {resumeAt ? 'Resume' : 'Play'}
-              </button>
+              {pane ? (
+                <button className="btn primary xl" onClick={() => app.play(makeReq(app.history['mv:' + id]?.pos || 0))} data-autofocus>
+                  <Icon n="full" s={18} /> Full Screen
+                </button>
+              ) : (
+                <button className="btn primary xl" onClick={() => play(resumeAt || 0)} data-autofocus>
+                  <Icon n="play" fill s={18} /> {resumeAt ? 'Resume' : 'Play'}
+                </button>
+              )}
               {resumeAt > 0 && (
                 <button className="btn glass-btn xl" onClick={() => play(0)}>
                   <Icon n="refresh" s={18} /> From Start
@@ -195,8 +277,9 @@ export function MovieDetail({ id, given }: { id: string; given?: Item }) {
   )
 }
 
-export function SeriesDetail({ id, resume, given }: { id: string; resume?: string; given?: Item }) {
+export function SeriesDetail({ id, resume, given, pane }: { id: string; resume?: string; given?: Item; pane?: boolean }) {
   const app = useApp()
+  const [inline, setInline] = useState<PlayRequest | null>(null)
   const known = app.findItem('series', id) || given
   const [info, setInfo] = useState<any>(null)
   const [eps, setEps] = useState<Episode[] | null>(known?.episodes || null)
@@ -222,10 +305,10 @@ export function SeriesDetail({ id, resume, given }: { id: string; resume?: strin
 
   const list = eps || []
   const inSeason = list.filter((e) => e.season === season)
-  const play = (e: Episode) => {
+  const play = (e: Episode, full = false) => {
     const idx = list.indexOf(e)
     const h = app.history['ep:' + e.id]
-    app.play({
+    ;(pane && !full ? setInline : app.play)({
       kind: 'episode',
       title: item.name,
       subtitle: `S${e.season} · E${e.episode} — ${e.title}`,
@@ -246,16 +329,25 @@ export function SeriesDetail({ id, resume, given }: { id: string; resume?: strin
     return list[list.indexOf(last.e) + 1] || last.e
   }, [list, app.history])
 
+  // In the dashboard the next episode starts playing as soon as the series is picked
+  useEffect(() => {
+    if (pane && !inline && nextUp) play(nextUp)
+  }, [nextUp?.id])
   const back = Array.isArray(info?.backdrop_path) ? info.backdrop_path[0] : info?.backdrop_path
+  const playingEp = inline?.historyKey?.slice(3)
   return (
-    <div className="detail">
-      <Backdrop src={back || item.logo} />
+    <div className={'detail' + (pane ? ' pane' : '')}>
+      {!pane && <Backdrop src={back || item.logo} />}
       <div className="detail-body">
-        <button className="icon-btn glass-btn" onClick={app.nav.back} aria-label="Back">
-          <Icon n="back" />
-        </button>
+        {pane ? (
+          inline ? <InlinePlayer req={inline} /> : eps == null && !err ? <div className="preview-video"><div className="p-center"><Spinner /></div></div> : null
+        ) : (
+          <button className="icon-btn glass-btn" onClick={app.nav.back} aria-label="Back">
+            <Icon n="back" />
+          </button>
+        )}
         <div className="detail-main">
-          <Img className="detail-poster" src={info?.cover || item.logo} alt={item.name} />
+          {!pane && <Img className="detail-poster" src={info?.cover || item.logo} alt={item.name} />}
           <div className="detail-text">
             <h1 className="hero-title">{info?.name || item.name}</h1>
             <div className="meta-line">
@@ -269,7 +361,12 @@ export function SeriesDetail({ id, resume, given }: { id: string; resume?: strin
               )}
             </div>
             <div className="row gap wrap">
-              {nextUp && (
+              {pane && inline && (
+                <button className="btn primary xl" onClick={() => app.play({ ...inline, startAt: app.history[inline.historyKey!]?.pos || inline.startAt })} data-autofocus>
+                  <Icon n="full" s={18} /> Full Screen
+                </button>
+              )}
+              {nextUp && !pane && (
                 <button className="btn primary xl" onClick={() => play(nextUp)} data-autofocus>
                   <Icon n="play" fill s={18} /> {app.history['ep:' + nextUp.id] ? 'Continue' : 'Play'} S{nextUp.season} E{nextUp.episode}
                 </button>
@@ -296,7 +393,7 @@ export function SeriesDetail({ id, resume, given }: { id: string; resume?: strin
                 const h = app.history['ep:' + e.id]
                 const p = h?.dur ? (h.pos || 0) / h.dur : 0
                 return (
-                  <button key={e.id} className="episode" onClick={() => play(e)}>
+                  <button key={e.id} className={'episode' + (playingEp === e.id ? ' on' : '')} onClick={() => play(e)}>
                     <div className="ep-img">
                       <Img src={e.image || item.logo} alt={e.title} className="cover" />
                       <span className="play-badge">
