@@ -1,6 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { getSettings, onSettings, read, setSettings, write, type Settings } from './lib/settings'
-import { loadCatalog } from './lib/catalog'
+import { episodeStream, loadCatalog, streamFor } from './lib/catalog'
+import { playPro, proPreferred } from './lib/pro'
 import { idbDel, idbGet, idbSet } from './lib/idb'
 import { xtCategoryItems } from './lib/xtream'
 import { fetchCloudPlaylists, toPlaylist } from './lib/cloud'
@@ -282,6 +283,36 @@ function useStore() {
     Object.entries(catItems).find(([k, v]) => k.startsWith(kind + ':') && v.some((i) => i.id === id))?.[1].find((i) => i.id === id) ||
     favItems[kind + ':' + id]
 
+  // Firestick / Android TV: everything plays in the Pro player (VLC engine) — picture + every sound format,
+  // CH+/CH– and Up/Down change channel. Phones / laptops keep the built-in player.
+  const play = (req: PlayRequest | null) => {
+    if (!req || !active || !proPreferred()) return setPlayer(req)
+    const live = req.kind === 'live'
+    const list = live && req.channels?.length ? req.channels : null
+    const eps = !live && req.episodes ? req.episodes : null
+    playPro({
+      url: req.url,
+      title: req.title + (req.subtitle ? ' — ' + req.subtitle : ''),
+      start: req.startAt || 0,
+      live,
+      urls: list ? list.map((c) => streamFor(active, c)) : eps ? eps.list.map((e) => episodeStream(active, e)) : [],
+      titles: list ? list.map((c) => (c.num ? c.num + '  ' : '') + c.name) : eps ? eps.list.map((e) => `${eps.seriesName} — S${e.season} E${e.episode} ${e.title}`) : [],
+      index: list ? req.index || 0 : eps ? eps.index : 0,
+    })
+      .then((r) => {
+        if (live) {
+          const ch = list ? list[r?.index ?? req.index ?? 0] : null
+          if (ch) saveHistory({ key: 'live:' + ch.id, kind: 'live', id: ch.id, name: ch.name, image: ch.logo, pos: 0, dur: 0 })
+          else if (req.historyKey && req.history) saveHistory({ key: req.historyKey, ...req.history, pos: 0, dur: 0 })
+        } else if (r && r.pos > 3) {
+          const e = eps ? eps.list[r.index] : null
+          if (e) saveHistory({ key: 'ep:' + e.id, kind: 'episode', id: e.id, name: e.title, image: e.image || eps!.image, seriesId: eps!.seriesId, seriesName: eps!.seriesName, season: e.season, episode: e.episode, pos: r.pos, dur: r.dur })
+          else if (req.historyKey && req.history) saveHistory({ key: req.historyKey, ...req.history, pos: r.pos, dur: r.dur })
+        }
+      })
+      .catch(() => setPlayer(req)) // Pro player unavailable → built-in player
+  }
+
   const addReminder = (r: Omit<Reminder, 'id'>) => {
     const n = [...reminders.filter((x) => x.start > Date.now()), { ...r, id: uid() }]
     setReminders(n)
@@ -336,7 +367,7 @@ function useStore() {
     stack,
     nav,
     player,
-    play: setPlayer,
+    play,
     toasts,
     toast,
   }
