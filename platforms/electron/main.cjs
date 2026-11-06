@@ -19,6 +19,7 @@ function findVlc() {
     return null
   }
 }
+ipcMain.handle('has-vlc', () => !!findVlc())
 ipcMain.handle('open-vlc', (_e, url, title) => {
   const vlc = findVlc()
   if (!vlc) {
