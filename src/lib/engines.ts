@@ -140,6 +140,16 @@ export async function attachEngine(
       if (d.type === Hls.ErrorTypes.NETWORK_ERROR && recovered++ < 3) return hls.startLoad()
       opts.onFatal?.(d.details || 'Stream error')
     })
+    // Many channels carry Dolby (AC3/E-AC3) + AAC/MP2 sound: choose a track the device can play
+    hls.on(Hls.Events.AUDIO_TRACKS_UPDATED, () => {
+      const ok = (c?: string) => !c || (window as any).MediaSource?.isTypeSupported?.(`audio/mp4; codecs="${c}"`)
+      const tr = hls.audioTracks || []
+      const cur = tr[hls.audioTrack]
+      if (tr.length > 1 && cur && !ok(cur.audioCodec)) {
+        const i = tr.findIndex((t: any) => ok(t.audioCodec))
+        if (i >= 0) hls.audioTrack = i
+      }
+    })
     ;['MANIFEST_PARSED', 'AUDIO_TRACKS_UPDATED', 'SUBTITLE_TRACKS_UPDATED', 'LEVEL_SWITCHED'].forEach((ev) =>
       hls.on(Hls.Events[ev], () => opts.onTracks?.())
     )
