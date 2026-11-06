@@ -6,6 +6,7 @@ import { episodeStream, streamFor } from '../lib/catalog'
 import { xtSeriesInfo, xtVodInfo } from '../lib/xtream'
 import { useEngine } from '../player/useEngine'
 import { useWide } from './Live'
+import { playPro } from '../lib/pro'
 import type { Episode, Item, Kind, PlayRequest } from '../lib/types'
 
 export function Library({ kind }: { kind: 'movie' | 'series' }) {
@@ -100,7 +101,7 @@ export function InlinePlayer({ req }: { req: PlayRequest }) {
   const app = useApp()
   const v = useRef<HTMLVideoElement>(null)
   const live = req.kind === 'live'
-  const { error, engine } = useEngine(v, app.player ? '' : req.url, live) // pause while the full player is open
+  const { error, engine, noAudio } = useEngine(v, app.player ? '' : req.url, live) // pause while the full player is open
   const seeked = useRef(false)
   useEffect(() => {
     seeked.current = false
@@ -133,6 +134,19 @@ export function InlinePlayer({ req }: { req: PlayRequest }) {
         </div>
       )}
       {error && <div className="p-center small muted pad">{error}</div>}
+      {noAudio && !error && (
+        <button
+          className="noaudio-chip"
+          onClick={async () => {
+            const el = v.current
+            el?.pause()
+            const r = await playPro({ url: req.url, title: req.title + (req.subtitle ? ' — ' + req.subtitle : ''), start: el?.currentTime || req.startAt || 0, live })
+            if (r && el && r.pos > 0) el.currentTime = r.pos
+          }}
+        >
+          <Icon n="mute" s={15} /> No sound? Pro player
+        </button>
+      )}
       <button className="expand" onClick={full} aria-label="Full Screen">
         <Icon n="full" s={18} />
       </button>
