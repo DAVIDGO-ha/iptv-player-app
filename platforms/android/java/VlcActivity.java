@@ -30,6 +30,11 @@ public class VlcActivity extends Activity {
     private ProgressBar spin;
     private long start;
     private boolean live;
+    private Uri uri;
+    private String ua;
+    private boolean gotVideo = false;
+    private boolean softMode = false;
+    private boolean checkPosted = false;
     private final Handler h = new Handler(Looper.getMainLooper());
     private final Runnable hide = () -> { if (info != null) info.setVisibility(View.GONE); };
 
@@ -69,6 +74,10 @@ public class VlcActivity extends Activity {
                 case MediaPlayer.Event.Playing:
                     spin.setVisibility(View.GONE);
                     if (start > 0 && !live) { mp.setTime(start); start = 0; }
+                    if (!checkPosted) { checkPosted = true; h.postDelayed(this::checkPicture, 6000); }
+                    break;
+                case MediaPlayer.Event.Vout:
+                    if (e.getVoutCount() > 0) gotVideo = true;
                     break;
                 case MediaPlayer.Event.Buffering:
                     spin.setVisibility(e.getBuffering() < 100f ? View.VISIBLE : View.GONE);
@@ -81,12 +90,31 @@ public class VlcActivity extends Activity {
                     break;
             }
         });
-        Media m = new Media(lib, Uri.parse(i.getStringExtra("url")));
-        m.setHWDecoderEnabled(true, false);
-        String ua = i.getStringExtra("ua");
+        uri = Uri.parse(i.getStringExtra("url"));
+        ua = i.getStringExtra("ua");
+        load(true);
+    }
+
+    private void load(boolean hw) {
+        Media m = new Media(lib, uri);
+        m.setHWDecoderEnabled(hw, false);
+        if (!hw) m.addOption(":codec=avcodec,all");
         if (ua != null) m.addOption(":http-user-agent=" + ua);
         mp.setMedia(m);
         m.release();
+    }
+
+    // Sound but no picture (hardware decoder can't show this video on older devices) → software decoding
+    private void checkPicture() {
+        if (mp == null || gotVideo || softMode || mp.getVideoTracksCount() <= 0) return;
+        softMode = true;
+        long t = mp.getTime();
+        show("Switching to compatible video mode…");
+        mp.stop();
+        load(false);
+        start = live ? 0 : t;
+        checkPosted = true;
+        mp.play();
     }
 
     private void show(String t) {
