@@ -98,6 +98,12 @@ export function Settings() {
         />
       </Group>
 
+      <Group title="Country">
+        <Row icon="tv" label="Background" sub="Living-room picture with the UK or German flag (Auto = by your country)">
+          <Segmented value={s.region || 'auto'} onChange={(v) => set({ region: v })} options={[{ v: 'auto', l: 'Auto' }, { v: 'uk', l: 'UK' }, { v: 'de', l: 'Germany' }]} />
+        </Row>
+      </Group>
+
       <Group title="Player">
         {canPro() && (
           <Row icon="tv" label="Player engine" sub="Pro = VLC engine: every picture & sound format (best for Firestick / old TVs)">
