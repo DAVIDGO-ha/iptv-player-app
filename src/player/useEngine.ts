@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { attachEngine, detectType, type Engine } from '../lib/engines'
+import { attachTranscode, canTranscode, needsTranscode, probe } from '../lib/transcode'
 
 // Attach the right engine to a <video>, with automatic fallback between formats.
 export function useEngine(videoRef: React.RefObject<HTMLVideoElement>, url: string | undefined, live: boolean) {
@@ -10,6 +11,8 @@ export function useEngine(videoRef: React.RefObject<HTMLVideoElement>, url: stri
   const [noAudio, setNoAudio] = useState(false)
   const [noVideo, setNoVideo] = useState(false)
   const engRef = useRef<Engine | null>(null)
+  // Laptop app: Dolby / DTS sound → ffmpeg converts the sound so the built-in player has sound
+  const [txFor, setTxFor] = useState('')
 
   useEffect(() => {
     const v = videoRef.current
@@ -23,13 +26,21 @@ export function useEngine(videoRef: React.RefObject<HTMLVideoElement>, url: stri
     let aBad = 0
     let vBad = 0
     let ticks = 0
+    const tx = canTranscode()
+    let txOn = false
     const audioCheck = setInterval(() => {
       if (v.paused || v.currentTime < 2) return
       if (++ticks > 6) return clearInterval(audioCheck)
       const dec = (v as any).webkitAudioDecodedByteCount
       const vdec = (v as any).webkitVideoDecodedByteCount
-      if (dec === 0 && ++aBad === 2 && !dead) setNoAudio(true)
-      if ((v.videoWidth === 0 || vdec === 0) && ++vBad === 2 && !dead) setNoVideo(true)
+      if (dec === 0 && ++aBad === 2 && !dead) {
+        if (tx && !txOn) return clearInterval(audioCheck), setTxFor(url)
+        setNoAudio(true)
+      }
+      if ((v.videoWidth === 0 || vdec === 0) && ++vBad === 2 && !dead) {
+        if (tx && !txOn) return clearInterval(audioCheck), setTxFor(url)
+        setNoVideo(true)
+      }
     }, 2500)
     const first = detectType(url, live ? 'live' : undefined)
     // Fallback order per first guess
@@ -74,7 +85,27 @@ export function useEngine(videoRef: React.RefObject<HTMLVideoElement>, url: stri
     v.addEventListener('error', onErr)
     const onMeta = () => setTick((x) => x + 1)
     v.addEventListener('loadedmetadata', onMeta)
-    tryNext()
+    const start = async () => {
+      if (tx) {
+        const info = txFor === url ? await probe(url) : live ? null : await probe(url)
+        if (dead) return
+        if (txFor === url || needsTranscode(info)) {
+          try {
+            txOn = true
+            const e = await attachTranscode(v, url, live, info)
+            if (dead) return e.destroy()
+            engRef.current = e
+            setEngine(e)
+            v.play().catch(() => {})
+            return
+          } catch {
+            /* no ffmpeg → normal engine; a later no-sound check shows the Pro player button */
+          }
+        }
+      }
+      tryNext()
+    }
+    start()
     return () => {
       dead = true
       clearInterval(audioCheck)
@@ -84,7 +115,7 @@ export function useEngine(videoRef: React.RefObject<HTMLVideoElement>, url: stri
       engRef.current = null
       setEngine(null)
     }
-  }, [url, live, attempt])
+  }, [url, live, attempt, txFor])
 
   return { engine, error, tracksTick, noAudio, noVideo, retry: () => setAttempt((a) => a + 1) }
 }
