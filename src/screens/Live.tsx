@@ -9,7 +9,7 @@ import { timeshiftUrl, xtArchive, xtShortEpg } from '../lib/xtream'
 import { proxied } from '../lib/net'
 import type { Item, Programme } from '../lib/types'
 
-const useWide = () => {
+export const useWide = () => {
   const q = '(min-width: 1000px)'
   const [w, setW] = useState(() => matchMedia(q).matches)
   useEffect(() => {
