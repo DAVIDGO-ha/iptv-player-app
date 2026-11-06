@@ -101,7 +101,8 @@ export function InlinePlayer({ req }: { req: PlayRequest }) {
   const app = useApp()
   const v = useRef<HTMLVideoElement>(null)
   const live = req.kind === 'live'
-  const { error, engine, noAudio } = useEngine(v, app.player ? '' : req.url, live) // pause while the full player is open
+  const { error, engine, noAudio: noSnd, noVideo } = useEngine(v, app.player ? '' : req.url, live) // pause while the full player is open
+  const noAudio = noSnd || noVideo
   const seeked = useRef(false)
   useEffect(() => {
     seeked.current = false
@@ -134,7 +135,7 @@ export function InlinePlayer({ req }: { req: PlayRequest }) {
         </div>
       )}
       {error && <div className="p-center small muted pad">{error}</div>}
-      {noAudio && !error && (
+      {(noAudio || error) && (
         <button
           className="noaudio-chip"
           onClick={async () => {
@@ -144,7 +145,7 @@ export function InlinePlayer({ req }: { req: PlayRequest }) {
             if (r && el && r.pos > 0) el.currentTime = r.pos
           }}
         >
-          <Icon n="mute" s={15} /> No sound? Pro player
+          <Icon n="mute" s={15} /> {error ? 'Play with' : noVideo ? 'No picture?' : 'No sound?'} Pro player
         </button>
       )}
       <button className="expand" onClick={full} aria-label="Full Screen">
