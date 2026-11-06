@@ -19,7 +19,7 @@ export type Settings = {
   hideAdult: boolean
   language: string
   engine: 'auto' | 'pro' | 'builtin' // auto = Pro player on Firestick / Android TV
-  region: 'auto' | 'uk' | 'de' // background flag
+  region: string // background flag: 'auto' or a country code (GB, DE, FR…)
 }
 
 export const DEFAULTS: Settings = {
