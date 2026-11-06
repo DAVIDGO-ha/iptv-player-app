@@ -3,7 +3,7 @@ import { useApp } from '../store'
 import { Icon, Logo, Modal, Segmented, Spinner } from '../ui'
 import { xtLogin } from '../lib/xtream'
 import { parseM3U } from '../lib/m3u'
-import { fetchText } from '../lib/net'
+import { fetchText, fixProto } from '../lib/net'
 import { deviceId } from '../lib/settings'
 import { activateUrl, deviceKey } from '../lib/cloud'
 import { SITE_LABEL } from '../config'
@@ -80,12 +80,13 @@ export function AddPlaylist({ edit }: { edit?: Playlist }) {
         if (!sv || !us || !pw) throw new Error('Please fill in server, username and password.')
         const p = { type: 'xtream' as const, name: name || hostOf(sv), server: sv, username: us, password: pw, epgUrl: epg }
         await xtLogin({ ...p, id: '', addedAt: 0 })
+        p.server = fixProto(sv) // use http/https — whichever the server actually answered on
         await app.addPlaylist(p, undefined, edit?.id)
       } else if (type === 'm3u') {
         if (!/^https?:\/\//i.test(url)) throw new Error('Please enter a valid playlist URL (http:// or https://).')
         const text = await fetchText(url, 120000)
         parseM3U(text)
-        await app.addPlaylist({ type: 'm3u', name: name || hostOf(url), url: url.trim(), epgUrl: epg }, undefined, edit?.id)
+        await app.addPlaylist({ type: 'm3u', name: name || hostOf(url), url: fixProto(url.trim()), epgUrl: epg }, undefined, edit?.id)
       } else {
         if (!fileText && !edit) throw new Error('Choose an .m3u file first.')
         if (fileText) parseM3U(fileText)
