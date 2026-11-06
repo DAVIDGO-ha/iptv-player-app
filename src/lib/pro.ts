@@ -6,6 +6,19 @@ export const hasNativePro = () => !!W.Capacitor?.isNativePlatform?.()
 export const hasDesktopPro = () => !!W.desktop?.openVlc
 export const canPro = () => hasNativePro() || hasDesktopPro()
 
+/** Can a stream that has no sound in the built-in engine be moved to the Pro player automatically? */
+export async function autoProOk(): Promise<boolean> {
+  if (hasNativePro()) return true
+  if (hasDesktopPro()) {
+    try {
+      return !!(await W.desktop.hasVlc?.())
+    } catch {
+      return false
+    }
+  }
+  return false
+}
+
 /** Firestick / Android TV app: play everything in the Pro player (old TV sticks often show sound but no picture in the web engine). */
 export function proPreferred(): boolean {
   if (!hasNativePro()) return false
