@@ -262,7 +262,16 @@ export function Blocked() {
           <Icon n="lock" s={34} />
         </div>
         <h1 className="hero-title">Device blocked</h1>
-        <p className="muted lead">This device has been blocked. Please contact your provider to renew or reactivate your service.</p>
+        <p className="muted lead">To unblock your device, contact us:</p>
+        <div className="blocked-contact">
+          <div>
+            <Icon n="tv" s={20} /> <b>{SITE_LABEL.replace(/^www\./, 'www.')}</b>
+          </div>
+          <div>
+            <Icon n="info" s={20} /> WhatsApp <b>+44 7473 966835</b>
+          </div>
+        </div>
+        <p className="small muted">Give us your MAC Address and Device Key:</p>
         <div className="dev-codes">
           <div>
             <span className="muted small">MAC Address</span>
@@ -276,7 +285,6 @@ export function Blocked() {
         <button className="btn glass-btn xl" onClick={() => app.syncCloud(true)} data-autofocus>
           {app.syncing ? <Spinner size={18} /> : <Icon n="refresh" s={20} />} Check again
         </button>
-        <p className="tiny muted">Support: {SITE_LABEL}</p>
       </div>
     </div>
   )
