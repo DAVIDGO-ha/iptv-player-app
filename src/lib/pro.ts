@@ -31,6 +31,17 @@ export function proPreferred(): boolean {
   return document.documentElement.classList.contains('tv')
 }
 
+/** Android app: series episodes (and MKV / AVI files) almost always carry Dolby / DTS sound → always use the Pro player. */
+export function proFor(kind: string, url: string): boolean {
+  if (!hasNativePro()) return false
+  let e = 'auto'
+  try {
+    e = JSON.parse(localStorage.getItem('ip.settings') || '{}').engine || 'auto'
+  } catch {}
+  if (e === 'builtin') return false
+  return proPreferred() || kind === 'episode' || /\.(mkv|avi)(\?|$)/i.test(url)
+}
+
 /** Plays the stream in the Pro player. Resolves with the position (seconds) when the user comes back, or null. */
 export async function playPro(o: {
   url: string
