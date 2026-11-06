@@ -1,0 +1,12 @@
+{
+  "id": "com.iptvplayer.app",
+  "version": "1.0.0",
+  "vendor": "IPTV PLAYER",
+  "type": "web",
+  "main": "index.html",
+  "title": "IPTV PLAYER",
+  "icon": "icons/icon-192.png",
+  "largeIcon": "icons/icon-512.png",
+  "resolution": "1920x1080",
+  "disableBackHistoryAPI": true
+}

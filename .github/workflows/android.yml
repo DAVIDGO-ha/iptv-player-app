@@ -1,0 +1,70 @@
+name: Build Android APK (phone, Android TV, Firestick)
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Build web app
+        env:
+          SITE_URL: ${{ vars.SITE_URL }} # optional: GitHub › Settings › Variables › SITE_URL = your website
+        run: |
+          npm install
+          npm run build
+
+      - name: Create Android project (Capacitor)
+        run: |
+          npm install @capacitor/core@6 @capacitor/cli@6 @capacitor/android@6 @capacitor/app@6
+          npx cap add android
+          npx cap sync android
+
+      - name: Android TV / Firestick support + http streams
+        run: |
+          M=android/app/src/main/AndroidManifest.xml
+          # allow http IPTV servers
+          sed -i 's|<application|<application android:usesCleartextTraffic="true" android:banner="@drawable/banner"|' $M
+          # show the app on Android TV / Fire TV home screens
+          sed -i 's|<category android:name="android.intent.category.LAUNCHER" />|<category android:name="android.intent.category.LAUNCHER" />\n                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />|' $M
+          # don't require a touchscreen (TVs have none)
+          sed -i 's|<uses-permission android:name="android.permission.INTERNET" />|<uses-permission android:name="android.permission.INTERNET" />\n    <uses-feature android:name="android.hardware.touchscreen" android:required="false" />\n    <uses-feature android:name="android.software.leanback" android:required="false" />|' $M
+          mkdir -p android/app/src/main/res/drawable
+          cp platforms/android/banner.png android/app/src/main/res/drawable/banner.png
+          cat $M
+
+      - name: Build APK
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
+          cp app/build/outputs/apk/debug/app-debug.apk ../IPTV-PLAYER.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: IPTV-PLAYER-apk
+          path: IPTV-PLAYER.apk
+
+      # Public download link for the Downloader app on Firestick:
+      # https://github.com/<you>/<repo>/releases/latest/download/IPTV-PLAYER.apk
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: IPTV PLAYER (latest build)
+          make_latest: true
+          files: IPTV-PLAYER.apk

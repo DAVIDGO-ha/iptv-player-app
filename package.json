@@ -1,0 +1,22 @@
+{
+  "name": "iptv-player",
+  "version": "1.0.0",
+  "private": true,
+  "description": "IPTV PLAYER — premium IPTV player for Xtream Codes & M3U (web, Android, Android TV, Fire TV, iOS, Apple TV via web, Samsung Tizen, LG webOS, Windows, macOS)",
+  "type": "module",
+  "scripts": {
+    "dev": "node build.mjs --watch",
+    "build": "node build.mjs",
+    "mock": "node tools/mock-server.mjs",
+    "proxy": "node tools/proxy-server.mjs"
+  },
+  "dependencies": {
+    "hls.js": "1.5.15",
+    "mpegts.js": "1.7.3",
+    "react": "19.2.0",
+    "react-dom": "19.2.0"
+  },
+  "devDependencies": {
+    "esbuild": "0.25.0"
+  }
+}
