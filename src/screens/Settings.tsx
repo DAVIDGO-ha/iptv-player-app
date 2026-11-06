@@ -8,6 +8,7 @@ import { SITE_LABEL } from '../config'
 import { idbDel } from '../lib/idb'
 import { loadEpg } from '../lib/epg'
 import type { Kind } from '../lib/types'
+import { canPro } from '../lib/pro'
 
 const ACCENTS = ['#FF2D3A', '#0A84FF', '#5E5CE6', '#BF5AF2', '#FF375F', '#FF9F0A', '#30D158', '#FFFFFF']
 export const VERSION = '1.0.0'
@@ -82,7 +83,7 @@ export function Settings() {
       </Group>
 
       <Group title="Device activation" foot={`Open ${SITE_LABEL}/activate on your phone and enter these codes to add playlists to this device.`}>
-        <Row icon="tv" label="Device ID" sub={deviceId()} />
+        <Row icon="tv" label="MAC Address" sub={deviceId()} />
         <Row icon="lock" label="Device Key" sub={deviceKey()} />
         <Row icon="refresh" label={app.syncing ? 'Syncing…' : 'Sync playlists from website'} sub={app.lastSync ? 'Last sync ' + new Date(app.lastSync).toLocaleTimeString() : undefined} onClick={() => app.syncCloud(true)} />
         <Row
@@ -98,6 +99,11 @@ export function Settings() {
       </Group>
 
       <Group title="Player">
+        {canPro() && (
+          <Row icon="tv" label="Player engine" sub="Pro = VLC engine: every picture & sound format (best for Firestick / old TVs)">
+            <Segmented value={s.engine || 'auto'} onChange={(v) => set({ engine: v })} options={[{ v: 'auto', l: 'Auto' }, { v: 'pro', l: 'Pro' }, { v: 'builtin', l: 'Built-in' }]} />
+          </Row>
+        )}
         <Row icon="live" label="Live stream format" sub="MPEG-TS is lower latency; HLS works on more devices">
           <Segmented value={s.liveFormat} onChange={(v) => set({ liveFormat: v })} options={[{ v: 'ts', l: 'MPEG-TS' }, { v: 'm3u8', l: 'HLS' }]} />
         </Row>
