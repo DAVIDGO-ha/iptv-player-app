@@ -41,9 +41,9 @@ export function Header({ title, sub, children, back }: { title: string; sub?: st
   )
 }
 
-export function Poster({ item, onClick, progress }: { item: { name: string; logo?: string; rating?: number; year?: string }; onClick: () => void; progress?: number }) {
+export function Poster({ item, onClick, progress, active }: { item: { name: string; logo?: string; rating?: number; year?: string }; onClick: () => void; progress?: number; active?: boolean }) {
   return (
-    <button className="poster" onClick={onClick} title={item.name}>
+    <button className={'poster' + (active ? ' on' : '')} onClick={onClick} title={item.name}>
       <div className="poster-img">
         <Img src={item.logo} alt={item.name} className="cover" />
         {!!item.rating && item.rating > 0 && (
