@@ -6,7 +6,7 @@ import { episodeStream, streamFor } from '../lib/catalog'
 import { xtSeriesInfo, xtVodInfo } from '../lib/xtream'
 import { useEngine } from '../player/useEngine'
 import { useWide } from './Live'
-import { playPro, proPreferred } from '../lib/pro'
+import { autoProOk, playPro, proPreferred } from '../lib/pro'
 import type { Episode, Item, Kind, PlayRequest } from '../lib/types'
 
 export function Library({ kind }: { kind: 'movie' | 'series' }) {
@@ -117,6 +117,19 @@ export function InlinePlayer({ req }: { req: PlayRequest }) {
     return () => (clearInterval(i), save())
   }, [req.url])
   const full = () => (save(), app.play({ ...req, startAt: live ? 0 : v.current?.currentTime || req.startAt || 0 }))
+  const pro = async () => {
+    const el = v.current
+    el?.pause()
+    const r = await playPro({ url: req.url, title: req.title + (req.subtitle ? ' — ' + req.subtitle : ''), start: el?.currentTime || req.startAt || 0, live })
+    if (r && el && r.pos > 0) el.currentTime = r.pos
+  }
+  // Dolby / DTS sound (most series & many movies) → Pro player automatically
+  const autoDone = useRef('')
+  useEffect(() => {
+    if ((!noAudio && !error) || autoDone.current === req.url || app.player) return
+    autoDone.current = req.url
+    autoProOk().then((ok) => ok && (app.toast('This sound is Dolby/DTS — playing in the Pro player'), pro()))
+  }, [noAudio, error])
   return (
     <div className="preview-video inline-player" onDoubleClick={full}>
       <video
@@ -136,15 +149,7 @@ export function InlinePlayer({ req }: { req: PlayRequest }) {
       )}
       {error && <div className="p-center small muted pad">{error}</div>}
       {(noAudio || error) && (
-        <button
-          className="noaudio-chip"
-          onClick={async () => {
-            const el = v.current
-            el?.pause()
-            const r = await playPro({ url: req.url, title: req.title + (req.subtitle ? ' — ' + req.subtitle : ''), start: el?.currentTime || req.startAt || 0, live })
-            if (r && el && r.pos > 0) el.currentTime = r.pos
-          }}
-        >
+        <button className="noaudio-chip" onClick={pro}>
           <Icon n="mute" s={15} /> {error ? 'Play with' : noVideo ? 'No picture?' : 'No sound?'} Pro player
         </button>
       )}
