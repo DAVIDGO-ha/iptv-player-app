@@ -6,7 +6,7 @@ import { episodeStream, streamFor } from '../lib/catalog'
 import { xtSeriesInfo, xtVodInfo } from '../lib/xtream'
 import { useEngine } from '../player/useEngine'
 import { useWide } from './Live'
-import { playPro } from '../lib/pro'
+import { playPro, proPreferred } from '../lib/pro'
 import type { Episode, Item, Kind, PlayRequest } from '../lib/types'
 
 export function Library({ kind }: { kind: 'movie' | 'series' }) {
@@ -37,7 +37,7 @@ export function Library({ kind }: { kind: 'movie' | 'series' }) {
   }, [items, g.cat, sort, q, app.favs, app.favItems])
   const { shown, sentinel } = useProgressive(list, 48)
   const title = kind === 'movie' ? 'Movies' : 'Series'
-  const wide = useWide()
+  const wide = useWide() && !proPreferred() // Firestick / Android TV: open the details page, play in the Pro player
   const [sel, setSel] = useState<Item | null>(null)
   // Big screens (laptop, TV, phone in landscape): play inside the dashboard, keep the list visible
   const open = (i: Item) => (wide ? setSel(i) : app.nav.push(kind, { id: i.id, item: i }))
