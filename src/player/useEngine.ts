@@ -8,6 +8,7 @@ export function useEngine(videoRef: React.RefObject<HTMLVideoElement>, url: stri
   const [tracksTick, setTick] = useState(0)
   const [attempt, setAttempt] = useState(0)
   const [noAudio, setNoAudio] = useState(false)
+  const [noVideo, setNoVideo] = useState(false)
   const engRef = useRef<Engine | null>(null)
 
   useEffect(() => {
@@ -16,16 +17,19 @@ export function useEngine(videoRef: React.RefObject<HTMLVideoElement>, url: stri
     let dead = false
     setError('')
     setNoAudio(false)
-    // Picture plays but no sound is decoded → the sound is Dolby/DTS (not supported by the web engine)
-    let checks = 0
+    setNoVideo(false)
+    // Playing but no sound decoded → Dolby/DTS sound; sound but no picture → HEVC/H.265 or a format the
+    // device's web engine can't show (old Firesticks). Both play fine in the Pro player.
+    let aBad = 0
+    let vBad = 0
+    let ticks = 0
     const audioCheck = setInterval(() => {
+      if (v.paused || v.currentTime < 2) return
+      if (++ticks > 6) return clearInterval(audioCheck)
       const dec = (v as any).webkitAudioDecodedByteCount
-      if (dec === undefined || v.paused || v.currentTime < 2) return
-      if (dec > 0) return clearInterval(audioCheck)
-      if (++checks >= 2) {
-        clearInterval(audioCheck)
-        if (!dead) setNoAudio(true)
-      }
+      const vdec = (v as any).webkitVideoDecodedByteCount
+      if (dec === 0 && ++aBad === 2 && !dead) setNoAudio(true)
+      if ((v.videoWidth === 0 || vdec === 0) && ++vBad === 2 && !dead) setNoVideo(true)
     }, 2500)
     const first = detectType(url, live ? 'live' : undefined)
     // Fallback order per first guess
@@ -82,5 +86,5 @@ export function useEngine(videoRef: React.RefObject<HTMLVideoElement>, url: stri
     }
   }, [url, live, attempt])
 
-  return { engine, error, tracksTick, noAudio, retry: () => setAttempt((a) => a + 1) }
+  return { engine, error, tracksTick, noAudio, noVideo, retry: () => setAttempt((a) => a + 1) }
 }
