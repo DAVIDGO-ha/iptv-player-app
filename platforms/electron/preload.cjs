@@ -2,4 +2,5 @@
 const { contextBridge, ipcRenderer } = require('electron')
 contextBridge.exposeInMainWorld('desktop', {
   openVlc: (url, title) => ipcRenderer.invoke('open-vlc', url, title),
+  hasVlc: () => ipcRenderer.invoke('has-vlc'),
 })
