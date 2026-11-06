@@ -1,8 +1,7 @@
 name: Build IPTV PLAYER
 
+# Web player on GitHub Pages — run manually (Actions › Build IPTV PLAYER › Run workflow) after enabling Settings › Pages › GitHub Actions
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 permissions:
