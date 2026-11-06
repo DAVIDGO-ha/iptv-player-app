@@ -2793,3 +2793,43 @@ html.tv .neon-tile .nt-label {
   background: var(--accent);
   color: #fff;
 }
+
+/* Home tiles: same look on every screen — sized by screen height so they never fill a landscape phone */
+.neon-tile {
+  aspect-ratio: auto;
+  height: clamp(118px, 29vh, 330px);
+  padding-bottom: clamp(8px, 1.8vh, 18px);
+}
+.nt-art {
+  min-height: 0;
+  width: 100%;
+  padding-top: 6%;
+}
+.nt-art svg {
+  height: 100%;
+  width: auto;
+  max-width: 72%;
+}
+.nt-label {
+  font-size: clamp(15px, min(2vw, 3.4vh), 32px);
+}
+.nt-sub {
+  font-size: clamp(10.5px, 1.6vh, 13px);
+}
+@media (max-height: 560px) {
+  .neon-tiles {
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+  .neon-tile {
+    border-radius: 16px;
+  }
+}
+@media (max-width: 760px) and (orientation: portrait) {
+  .neon-tile {
+    height: clamp(130px, 22vh, 220px);
+  }
+}
+html.tv .neon-tile .nt-label {
+  font-size: clamp(20px, 3.2vh, 34px);
+}
