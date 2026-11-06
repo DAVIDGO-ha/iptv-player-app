@@ -35,6 +35,9 @@ public class VlcActivity extends Activity {
     private boolean gotVideo = false;
     private boolean softMode = false;
     private boolean checkPosted = false;
+    private String[] urls;
+    private String[] titles;
+    private int index = 0;
     private final Handler h = new Handler(Looper.getMainLooper());
     private final Runnable hide = () -> { if (info != null) info.setVisibility(View.GONE); };
 
@@ -83,7 +86,8 @@ public class VlcActivity extends Activity {
                     spin.setVisibility(e.getBuffering() < 100f ? View.VISIBLE : View.GONE);
                     break;
                 case MediaPlayer.Event.EndReached:
-                    finishWithPos();
+                    if (!live && urls != null && index < urls.length - 1) zap(1); // next episode
+                    else finishWithPos();
                     break;
                 case MediaPlayer.Event.EncounteredError:
                     show("This stream could not be played.");
@@ -92,7 +96,26 @@ public class VlcActivity extends Activity {
         });
         uri = Uri.parse(i.getStringExtra("url"));
         ua = i.getStringExtra("ua");
+        urls = i.getStringArrayExtra("urls");
+        titles = i.getStringArrayExtra("titles");
+        index = i.getIntExtra("index", 0);
         load(true);
+    }
+
+    // Up/Down, CH+/CH–: next / previous channel (or episode)
+    private void zap(int dir) {
+        if (urls == null || urls.length < 2 || mp == null) return;
+        index = (index + dir + urls.length) % urls.length;
+        uri = Uri.parse(urls[index]);
+        gotVideo = false;
+        softMode = false;
+        checkPosted = false;
+        start = 0;
+        spin.setVisibility(View.VISIBLE);
+        show(titles != null && index < titles.length ? titles[index] : "");
+        mp.stop();
+        load(true);
+        mp.play();
     }
 
     private void load(boolean hw) {
@@ -159,6 +182,22 @@ public class VlcActivity extends Activity {
             case KeyEvent.KEYCODE_MEDIA_REWIND:
                 seek(-10000);
                 return true;
+            case KeyEvent.KEYCODE_CHANNEL_UP:
+            case KeyEvent.KEYCODE_PAGE_UP:
+            case KeyEvent.KEYCODE_DPAD_UP:
+                if (urls != null && urls.length > 1) { zap(1); return true; }
+                break;
+            case KeyEvent.KEYCODE_CHANNEL_DOWN:
+            case KeyEvent.KEYCODE_PAGE_DOWN:
+            case KeyEvent.KEYCODE_DPAD_DOWN:
+                if (urls != null && urls.length > 1) { zap(-1); return true; }
+                break;
+            case KeyEvent.KEYCODE_MEDIA_NEXT:
+                zap(1);
+                return true;
+            case KeyEvent.KEYCODE_MEDIA_PREVIOUS:
+                zap(-1);
+                return true;
             case KeyEvent.KEYCODE_BACK:
                 finishWithPos();
                 return true;
@@ -172,6 +211,7 @@ public class VlcActivity extends Activity {
             r.putExtra("pos", mp.getTime());
             r.putExtra("dur", mp.getLength());
         }
+        r.putExtra("index", index);
         setResult(RESULT_OK, r);
         finish();
     }
