@@ -75,6 +75,8 @@ jobs:
           sed -i 's|<application|<application android:usesCleartextTraffic="true" android:banner="@drawable/banner"|' $M
           sed -i 's|<category android:name="android.intent.category.LAUNCHER" />|<category android:name="android.intent.category.LAUNCHER" />\n                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />|' $M
           sed -i 's|<uses-permission android:name="android.permission.INTERNET" />|<uses-permission android:name="android.permission.INTERNET" />\n    <uses-feature android:name="android.hardware.touchscreen" android:required="false" />\n    <uses-feature android:name="android.software.leanback" android:required="false" />\n    <uses-feature android:name="android.hardware.faketouch" android:required="false" />|' $M
+          # phone app opens in landscape, like IBO Player / IPTV Smarters
+          sed -i 's|android:name=".MainActivity"|android:name=".MainActivity" android:screenOrientation="sensorLandscape"|' $M
           mkdir -p android/app/src/main/res/drawable
           cp platforms/android/banner.png android/app/src/main/res/drawable/banner.png
           cat $M
