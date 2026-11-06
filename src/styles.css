@@ -2758,3 +2758,38 @@ html.tv .neon-tile .nt-label {
 .poster.on .poster-img {
   box-shadow: 0 0 0 3px var(--accent), 0 0 26px -4px var(--accent);
 }
+
+/* no-sound helper (Dolby / DTS audio → Pro player) */
+.p-noaudio {
+  position: absolute;
+  left: 50%;
+  top: 84px;
+  transform: translateX(-50%);
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-radius: 999px;
+  font-size: 14px;
+  color: #fff;
+  border: 1px solid var(--accent);
+}
+.p-noaudio b {
+  color: var(--accent);
+}
+.noaudio-chip {
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  background: var(--accent);
+  color: #fff;
+}
