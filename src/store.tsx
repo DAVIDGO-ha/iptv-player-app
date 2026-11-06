@@ -1,7 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { getSettings, onSettings, read, setSettings, write, type Settings } from './lib/settings'
 import { episodeStream, loadCatalog, streamFor } from './lib/catalog'
-import { playPro, proPreferred } from './lib/pro'
+import { playPro, proFor } from './lib/pro'
 import { idbDel, idbGet, idbSet } from './lib/idb'
 import { xtCategoryItems } from './lib/xtream'
 import { fetchCloudPlaylists, isBlocked, toPlaylist } from './lib/cloud'
@@ -298,7 +298,7 @@ function useStore() {
   // Firestick / Android TV: everything plays in the Pro player (VLC engine) — picture + every sound format,
   // CH+/CH– and Up/Down change channel. Phones / laptops keep the built-in player.
   const play = (req: PlayRequest | null) => {
-    if (!req || !active || !proPreferred()) return setPlayer(req)
+    if (!req || !active || !proFor(req.kind, req.url)) return setPlayer(req)
     const live = req.kind === 'live'
     const list = live && req.channels?.length ? req.channels : null
     const eps = !live && req.episodes ? req.episodes : null
