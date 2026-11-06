@@ -264,12 +264,12 @@ export function ActivationCard({ compact = false }: { compact?: boolean }) {
           <li>
             Scan the code or open <b className="accent">{SITE_LABEL}/activate</b>
           </li>
-          <li>Enter your Device ID and Device Key</li>
+          <li>Enter your MAC Address and Device Key</li>
           <li>Add your M3U link or Xtream login — it appears here automatically</li>
         </ol>
         <div className="dev-codes">
           <div>
-            <span className="muted small">Device ID</span>
+            <span className="muted small">MAC Address</span>
             <b>{deviceId()}</b>
           </div>
           <div>
