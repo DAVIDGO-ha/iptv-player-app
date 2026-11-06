@@ -251,6 +251,37 @@ export function Playlists() {
   )
 }
 
+// Shown when the device is blocked from the admin dashboard
+export function Blocked() {
+  const app = useApp()
+  return (
+    <div className="welcome blocked-screen">
+      <div className="welcome-glow" />
+      <div className="welcome-card">
+        <div className="blocked-badge">
+          <Icon n="lock" s={34} />
+        </div>
+        <h1 className="hero-title">Device blocked</h1>
+        <p className="muted lead">This device has been blocked. Please contact your provider to renew or reactivate your service.</p>
+        <div className="dev-codes">
+          <div>
+            <span className="muted small">MAC Address</span>
+            <b>{deviceId()}</b>
+          </div>
+          <div>
+            <span className="muted small">Device Key</span>
+            <b>{deviceKey()}</b>
+          </div>
+        </div>
+        <button className="btn glass-btn xl" onClick={() => app.syncCloud(true)} data-autofocus>
+          {app.syncing ? <Spinner size={18} /> : <Icon n="refresh" s={20} />} Check again
+        </button>
+        <p className="tiny muted">Support: {SITE_LABEL}</p>
+      </div>
+    </div>
+  )
+}
+
 // Shown on the TV: scan the QR / open the website on a phone, enter Device ID + Key, add a playlist.
 export function ActivationCard({ compact = false }: { compact?: boolean }) {
   const app = useApp()
