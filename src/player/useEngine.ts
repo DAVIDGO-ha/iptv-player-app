@@ -7,6 +7,7 @@ export function useEngine(videoRef: React.RefObject<HTMLVideoElement>, url: stri
   const [engine, setEngine] = useState<Engine | null>(null)
   const [tracksTick, setTick] = useState(0)
   const [attempt, setAttempt] = useState(0)
+  const [noAudio, setNoAudio] = useState(false)
   const engRef = useRef<Engine | null>(null)
 
   useEffect(() => {
@@ -14,6 +15,18 @@ export function useEngine(videoRef: React.RefObject<HTMLVideoElement>, url: stri
     if (!v || !url) return
     let dead = false
     setError('')
+    setNoAudio(false)
+    // Picture plays but no sound is decoded → the sound is Dolby/DTS (not supported by the web engine)
+    let checks = 0
+    const audioCheck = setInterval(() => {
+      const dec = (v as any).webkitAudioDecodedByteCount
+      if (dec === undefined || v.paused || v.currentTime < 2) return
+      if (dec > 0) return clearInterval(audioCheck)
+      if (++checks >= 2) {
+        clearInterval(audioCheck)
+        if (!dead) setNoAudio(true)
+      }
+    }, 2500)
     const first = detectType(url, live ? 'live' : undefined)
     // Fallback order per first guess
     const order: { u: string; t: 'hls' | 'ts' | 'native' }[] = [{ u: url, t: first }]
@@ -52,7 +65,7 @@ export function useEngine(videoRef: React.RefObject<HTMLVideoElement>, url: stri
     const onErr = () => {
       const code = v.error?.code
       if (!v.getAttribute('src') && !engRef.current) return
-      tryNext(code === 4 ? 'This format is not supported on this device. Try “Open in external player”.' : 'Playback error.')
+      tryNext(code === 4 ? 'This format is not supported on this device. Try the Pro player button.' : 'Playback error.')
     }
     v.addEventListener('error', onErr)
     const onMeta = () => setTick((x) => x + 1)
@@ -60,6 +73,7 @@ export function useEngine(videoRef: React.RefObject<HTMLVideoElement>, url: stri
     tryNext()
     return () => {
       dead = true
+      clearInterval(audioCheck)
       v.removeEventListener('error', onErr)
       v.removeEventListener('loadedmetadata', onMeta)
       engRef.current?.destroy()
@@ -68,5 +82,5 @@ export function useEngine(videoRef: React.RefObject<HTMLVideoElement>, url: stri
     }
   }, [url, live, attempt])
 
-  return { engine, error, tracksTick, retry: () => setAttempt((a) => a + 1) }
+  return { engine, error, tracksTick, noAudio, retry: () => setAttempt((a) => a + 1) }
 }
