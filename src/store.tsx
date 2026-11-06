@@ -4,7 +4,7 @@ import { episodeStream, loadCatalog, streamFor } from './lib/catalog'
 import { playPro, proPreferred } from './lib/pro'
 import { idbDel, idbGet, idbSet } from './lib/idb'
 import { xtCategoryItems } from './lib/xtream'
-import { fetchCloudPlaylists, toPlaylist } from './lib/cloud'
+import { fetchCloudPlaylists, isBlocked, toPlaylist } from './lib/cloud'
 import type { Catalog, Category, HistoryEntry, Item, Kind, PlayRequest, Playlist } from './lib/types'
 
 export type Route = { name: string; params?: any }
@@ -88,6 +88,18 @@ function useStore() {
   plRef.current = playlists
   const [syncing, setSyncing] = useState(false)
   const [lastSync, setLastSync] = useState<number>(0)
+  const [blocked, setBlocked] = useState(isBlocked())
+  useEffect(() => {
+    const f = () => setBlocked(isBlocked())
+    window.addEventListener('ip-blocked', f)
+    return () => window.removeEventListener('ip-blocked', f)
+  }, [])
+  // while blocked, check every minute so an unblock works quickly
+  useEffect(() => {
+    if (!blocked) return
+    const id = setInterval(() => syncCloud(), 60000)
+    return () => clearInterval(id)
+  }, [blocked])
   const syncCloud = useCallback(
     async (manual = false) => {
       setSyncing(true)
@@ -356,6 +368,7 @@ function useStore() {
     syncCloud,
     syncing,
     lastSync,
+    blocked,
     catItems,
     catBusy,
     findItem,
