@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useApp } from '../store'
 import { useEngine } from './useEngine'
-import { canPro, hasNativePro, playPro } from '../lib/pro'
+import { autoProOk, canPro, hasNativePro, playPro } from '../lib/pro'
 import { Icon, Img, fmtDur, fmtTime, keyDir, moveFocus, progressOf, Spinner } from '../ui'
 import { srtToVtt } from '../lib/engines'
 import { episodeStream, streamFor } from '../lib/catalog'
@@ -68,13 +68,16 @@ function PlayerView({ req }: { req: PlayRequest }) {
   }, [req.url])
   const autoPro = useRef('')
   useEffect(() => {
-    // Android app: anything the built-in engine can't play (no sound, no picture, unsupported format) → Pro player
+    // Anything the built-in engine can't play (no sound, no picture, unsupported format) → Pro player
+    // (Android app: built-in VLC engine · laptop: VLC when installed)
     if (!noAudio && !error) return
-    if (hasNativePro() && autoPro.current !== req.url) {
-      autoPro.current = req.url
+    if (autoPro.current === req.url) return
+    autoPro.current = req.url
+    autoProOk().then((ok) => {
+      if (!ok) return
       app.toast(error ? 'Opening in the Pro player…' : noVideo ? 'This picture format needs the Pro player — switching' : 'This sound is Dolby/DTS — switching to the Pro player')
       openPro()
-    }
+    })
   }, [noAudio, error])
 
   // ——— UI auto-hide ———
