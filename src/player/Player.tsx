@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useApp } from '../store'
 import { useEngine } from './useEngine'
+import { canPro, hasNativePro, playPro } from '../lib/pro'
 import { Icon, Img, fmtDur, fmtTime, keyDir, moveFocus, progressOf, Spinner } from '../ui'
 import { srtToVtt } from '../lib/engines'
 import { episodeStream, streamFor } from '../lib/catalog'
@@ -25,7 +26,7 @@ function PlayerView({ req }: { req: PlayRequest }) {
   const vod = !live
   const root = useRef<HTMLDivElement>(null)
   const video = useRef<HTMLVideoElement>(null)
-  const { engine, error, tracksTick, retry } = useEngine(video, req.url, live)
+  const { engine, error, tracksTick, retry, noAudio } = useEngine(video, req.url, live)
 
   const [playing, setPlaying] = useState(false)
   const [waiting, setWaiting] = useState(true)
@@ -50,6 +51,29 @@ function PlayerView({ req }: { req: PlayRequest }) {
     if (document.fullscreenElement) document.exitFullscreen().catch(() => {})
     app.play(null)
   }, [])
+
+  // ——— Pro player (plays Dolby / DTS sound) ———
+  const openPro = useCallback(async () => {
+    const v = video.current
+    const start = live ? 0 : v?.currentTime || req.startAt || 0
+    v?.pause()
+    try {
+      const r = await playPro({ url: req.url, title: req.title + (req.subtitle ? ' — ' + req.subtitle : ''), start, live })
+      if (r && !live && req.historyKey && req.history && r.pos > 3) app.saveHistory({ key: req.historyKey, ...req.history, pos: r.pos, dur: r.dur })
+      if (hasNativePro()) close()
+    } catch (e: any) {
+      app.toast('Pro player: ' + (e?.message || e))
+    }
+  }, [req.url])
+  const autoPro = useRef('')
+  useEffect(() => {
+    if (!noAudio) return
+    if (hasNativePro() && autoPro.current !== req.url) {
+      autoPro.current = req.url
+      app.toast('This sound is Dolby/DTS — switching to the Pro player')
+      openPro()
+    }
+  }, [noAudio])
 
   // ——— UI auto-hide ———
   const poke = useCallback(() => {
@@ -372,14 +396,19 @@ function PlayerView({ req }: { req: PlayRequest }) {
             <button className="btn primary" onClick={retry} data-autofocus>
               <Icon n="refresh" s={18} /> Retry
             </button>
-            <a className="btn" href={'vlc://' + req.url}>
-              Open in external player
-            </a>
+            <button className="btn" onClick={openPro}>
+              <Icon n="play" s={18} /> {canPro() ? 'Pro player' : 'Open in VLC'}
+            </button>
             <button className="btn" onClick={() => navigator.clipboard?.writeText(req.url).then(() => app.toast('Stream link copied'))}>
               Copy link
             </button>
           </div>
         </div>
+      )}
+      {noAudio && !error && (
+        <button className="p-noaudio glass" onClick={openPro}>
+          <Icon n="mute" s={18} /> No sound? This uses Dolby/DTS audio — <b>{canPro() ? 'play with Pro player' : 'open in VLC'}</b>
+        </button>
       )}
       {num && <div className="p-num glass">{num}</div>}
 
@@ -527,6 +556,11 @@ function PlayerView({ req }: { req: PlayRequest }) {
               {live && epg.length > 0 && (
                 <button className="icon-btn" onClick={() => setMenu('info')} aria-label="Programme guide">
                   <Icon n="guide" />
+                </button>
+              )}
+              {canPro() && (
+                <button className="icon-btn" onClick={openPro} aria-label="Pro player (all sound formats)" title="Pro player (all sound formats)">
+                  <Icon n="tv" />
                 </button>
               )}
               <button className="icon-btn" onClick={() => setMenu('audio')} aria-label="Audio tracks">
