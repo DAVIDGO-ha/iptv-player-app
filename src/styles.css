@@ -3001,3 +3001,83 @@ html.tv .neon-tile .nt-label {
     height: 48px;
   }
 }
+
+/* Movies / Series in the Live TV layout: categories · titles · player */
+.vod-row {
+  padding: 7px 10px;
+}
+.vod-thumb {
+  width: 44px;
+  height: 64px;
+  border-radius: 8px;
+  object-fit: cover;
+  background: var(--card2);
+  flex: none;
+  font-size: 10px;
+  box-shadow: 0 4px 14px -6px rgba(0, 0, 0, 0.7);
+}
+.vod-row .ch-text {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.vod-live .live-list {
+  max-width: 480px;
+}
+.vod-preview {
+  padding: 22px 22px 60px;
+}
+.vod-preview .detail.pane .hero-title {
+  font-size: clamp(20px, 2.2vw, 30px);
+}
+html.tv .vod-thumb {
+  width: 54px;
+  height: 78px;
+}
+.vod-preview {
+  background: rgba(6, 8, 30, 0.55);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+/* REFRESH / CHANGE PLAYLIST next to the clock */
+.top-mini {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  margin-left: 6px;
+  border-radius: 99px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  transition: background 0.15s;
+}
+.top-mini:hover,
+.top-mini:focus-visible {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+@media (max-width: 1180px) {
+  .top-mini span {
+    display: none;
+  }
+  .top-mini {
+    padding: 7px;
+  }
+}
+.top-link,
+.brand {
+  white-space: nowrap;
+}
+@media (max-width: 1440px) {
+  .top-mini {
+    font-size: 10px;
+    padding: 5px 8px;
+    margin-left: 4px;
+  }
+}
