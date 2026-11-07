@@ -20,6 +20,7 @@ export type Settings = {
   language: string
   engine: 'auto' | 'pro' | 'builtin' // auto = Pro player on Firestick / Android TV
   region: string // background flag: 'auto' or a country code (GB, DE, FR…)
+  uiLang: string // app language: auto / en / fr / de / es
 }
 
 export const DEFAULTS: Settings = {
@@ -43,6 +44,7 @@ export const DEFAULTS: Settings = {
   language: 'en',
   engine: 'auto',
   region: 'auto',
+  uiLang: 'auto',
 }
 
 const KEY = 'ip.settings'
