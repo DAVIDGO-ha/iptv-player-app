@@ -113,9 +113,11 @@ export function Library({ kind }: { kind: 'movie' | 'series' }) {
           <SortSelect value={sort} onChange={setSort} />
         </div>
         <div className="ch-scroll">
-          {shown.map((i) => (
-            <VodRow key={i.id} item={i} active={sel?.id === i.id} progress={kind === 'movie' ? prog(i) : undefined} fav={app.isFav(kind, i.id)} onClick={() => open(i)} />
-          ))}
+          <div className="poster-grid vod-cards">
+            {shown.map((i) => (
+              <Poster key={i.id} item={i} progress={kind === 'movie' ? prog(i) : undefined} active={sel?.id === i.id} onClick={() => open(i)} />
+            ))}
+          </div>
           {sentinel}
           {busy && (
             <div className="center-fill" style={{ height: 200 }}>
