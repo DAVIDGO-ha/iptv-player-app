@@ -3081,3 +3081,35 @@ html.tv .vod-thumb {
     margin-left: 4px;
   }
 }
+
+/* 3 columns on every screen size (phone, PC, TV): categories · names · player */
+.live.wide .live-cats {
+  width: clamp(190px, 21vw, 280px);
+}
+.live.wide .live-list {
+  flex: 0 0 clamp(260px, 34vw, 560px);
+  max-width: none;
+}
+.vod-live.live.wide .live-list {
+  flex-basis: clamp(250px, 31vw, 480px);
+}
+.live.wide .live-preview {
+  min-width: 0;
+}
+html.tv .live.wide .live-cats {
+  width: clamp(200px, 22vw, 320px);
+}
+html.tv .live.wide .live-list {
+  flex-basis: clamp(280px, 33vw, 560px);
+}
+html.tv .live.wide .live-preview {
+  padding: 18px 18px 30px;
+}
+.live.wide .toolbar .select {
+  flex: 0 1 auto;
+  max-width: 42%;
+}
+.live.wide .toolbar .search-box {
+  flex: 1;
+  min-width: 0;
+}
