@@ -20,6 +20,12 @@ function findVlc() {
   }
 }
 ipcMain.handle('has-vlc', () => !!findVlc())
+// Real network MAC address of this computer → stable MAC Address / free trial per PC
+ipcMain.handle('mac', () => {
+  const nets = require('os').networkInterfaces()
+  const all = Object.values(nets).flat().filter((n) => n && !n.internal && n.mac && n.mac !== '00:00:00:00:00:00')
+  return (all.find((n) => n.family === 'IPv4') || all[0])?.mac?.toUpperCase() || ''
+})
 ipcMain.handle('open-vlc', (_e, url, title) => {
   const vlc = findVlc()
   if (!vlc) {
