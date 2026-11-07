@@ -4,7 +4,7 @@ import { episodeStream, loadCatalog, streamFor } from './lib/catalog'
 import { playPro, proFor } from './lib/pro'
 import { idbDel, idbGet, idbSet } from './lib/idb'
 import { xtCategoryItems } from './lib/xtream'
-import { fetchCloudPlaylists, isBlocked, toPlaylist } from './lib/cloud'
+import { fetchCloudPlaylists, isBlocked, isExpired, licenseInfo, PRICES, toPlaylist } from './lib/cloud'
 import type { Catalog, Category, HistoryEntry, Item, Kind, PlayRequest, Playlist } from './lib/types'
 
 export type Route = { name: string; params?: any }
@@ -89,22 +89,34 @@ function useStore() {
   const [syncing, setSyncing] = useState(false)
   const [lastSync, setLastSync] = useState<number>(0)
   const [blocked, setBlocked] = useState(isBlocked())
+  const [expired, setExpired] = useState(isExpired()) // free trial / subscription ended → locked
   useEffect(() => {
-    const f = () => setBlocked(isBlocked())
+    const t = setInterval(() => setExpired(isExpired()), 60000)
+    return () => clearInterval(t)
+  }, [])
+  useEffect(() => {
+    const f = () => (setBlocked(isBlocked()), setExpired(isExpired()))
     window.addEventListener('ip-blocked', f)
     return () => window.removeEventListener('ip-blocked', f)
   }, [])
   // while blocked, check every minute so an unblock works quickly
   useEffect(() => {
-    if (!blocked) return
+    if (!blocked && !expired) return
     const id = setInterval(() => syncCloud(), 60000)
     return () => clearInterval(id)
-  }, [blocked])
+  }, [blocked, expired])
   const syncCloud = useCallback(
     async (manual = false) => {
       setSyncing(true)
       try {
         const remote = (await fetchCloudPlaylists()).map(toPlaylist)
+        // once a day during the free trial: how many days are left
+        const lic = licenseInfo()
+        const day = new Date().toDateString()
+        if (lic.state === 'trial' && read('ip.trialToast', '') !== day) {
+          write('ip.trialToast', day)
+          toast(`Free trial: ${lic.days} day${lic.days === 1 ? '' : 's'} left — then ${PRICES.year}/year or ${PRICES.lifetime} lifetime`)
+        }
         const cur = plRef.current
         const local = cur.filter((p) => !p.cloud)
         const same = (a: Playlist, b?: Playlist) => !!b && JSON.stringify({ ...a, addedAt: 0 }) === JSON.stringify({ ...b, addedAt: 0 })
@@ -369,6 +381,7 @@ function useStore() {
     syncing,
     lastSync,
     blocked,
+    expired,
     catItems,
     catBusy,
     findItem,
