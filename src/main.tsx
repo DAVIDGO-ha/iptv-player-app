@@ -6,6 +6,7 @@ import { initSpatialNav } from './ui'
 import './styles.css'
 import { initCountryBackground } from './lib/bgflag'
 import { initDeviceId } from './lib/settings'
+import { initI18n } from './lib/i18n'
 
 // Samsung Tizen: register remote media / colour keys
 try {
@@ -53,6 +54,7 @@ Promise.race([initDeviceId(), new Promise((r) => setTimeout(r, 1500))]).finally(
     </StoreProvider>
   )
 )
+initI18n() // French / German / Spanish interface
 
 initCountryBackground() // UK flag for the UK, German flag for Germany
 
