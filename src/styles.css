@@ -3113,3 +3113,47 @@ html.tv .live.wide .live-preview {
   flex: 1;
   min-width: 0;
 }
+
+/* Movies / Series: small category list · poster cards · player on the right (Live TV unchanged) */
+.vod-live.live.wide .live-cats {
+  width: clamp(140px, 14vw, 210px);
+  padding-left: 6px;
+  padding-right: 6px;
+}
+.vod-live .live-cats .large-title {
+  font-size: clamp(22px, 2.4vw, 34px);
+}
+.vod-live .cat-row {
+  padding: 8px 10px;
+  font-size: 13.5px;
+}
+.vod-live.live.wide .live-list {
+  flex: 1 1 auto;
+  max-width: none;
+  min-width: 0;
+}
+.vod-live .live-preview.vod-preview {
+  flex: 0 0 clamp(300px, 36vw, 640px);
+}
+.vod-cards {
+  grid-template-columns: repeat(auto-fill, minmax(clamp(112px, 10vw, 160px), 1fr));
+  gap: 16px 12px;
+  padding: 2px 2px 20px;
+}
+.vod-cards .poster-name {
+  font-size: 12.5px;
+}
+html.tv .vod-live.live.wide .live-cats {
+  width: clamp(150px, 16vw, 240px);
+}
+html.tv .vod-cards {
+  grid-template-columns: repeat(auto-fill, minmax(118px, 1fr));
+}
+.vod-cards .poster,
+html.tv .vod-cards .poster {
+  width: auto;
+  min-width: 0;
+}
+.vod-cards .poster-img {
+  width: 100%;
+}
