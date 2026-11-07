@@ -2,7 +2,7 @@ import React, { useEffect, useRef } from 'react'
 import { useApp } from './store'
 import { Icon, Logo } from './ui'
 import { Player } from './player/Player'
-import { Welcome, AddPlaylist, Playlists, Blocked } from './screens/Playlists'
+import { Welcome, AddPlaylist, Playlists, Blocked, Locked } from './screens/Playlists'
 import { Home, Loading, ErrorState } from './screens/Home'
 import { Live } from './screens/Live'
 import { Guide } from './screens/Guide'
@@ -129,6 +129,7 @@ export function App() {
   else screen = <Home />
 
   if (app.blocked) return <Blocked />
+  if (app.expired) return <Locked />
 
   const bare = route.name === 'welcome' || !app.playlists.length
   const root = app.stack[0].name
