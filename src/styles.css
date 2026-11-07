@@ -2868,3 +2868,136 @@ html.tv .neon-tile .nt-label {
   color: #fff;
   letter-spacing: 0.02em;
 }
+
+/* 7-day free trial ended → activation screen ($5 / year, $15 lifetime) */
+.locked-card {
+  flex-direction: row !important;
+  align-items: center;
+  gap: clamp(18px, 4vw, 48px) !important;
+  max-width: min(1080px, 94vw);
+  text-align: left;
+}
+.locked-main {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(10px, 2vh, 18px);
+  flex: 1;
+  min-width: 0;
+}
+.locked-head {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.locked-head .hero-title {
+  font-size: clamp(22px, 4.2vh, 40px);
+  margin: 0;
+}
+.locked-badge {
+  width: 62px;
+  height: 62px;
+  flex: none;
+  border-radius: 20px;
+}
+.price-row {
+  display: flex;
+  gap: 12px;
+}
+.price-card {
+  position: relative;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: clamp(10px, 2vh, 18px) 18px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+}
+.price-card b {
+  font-size: clamp(30px, 6vh, 52px);
+  line-height: 1.05;
+  color: #fff;
+}
+.price-card.best {
+  background: linear-gradient(160deg, rgba(48, 209, 88, 0.22), rgba(48, 209, 88, 0.06));
+  border-color: rgba(48, 209, 88, 0.6);
+}
+.price-tag {
+  position: absolute;
+  top: -10px;
+  right: 12px;
+  padding: 2px 8px;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  background: #30d158;
+  color: #04120a;
+}
+.locked-screen .blocked-contact {
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px 22px;
+  padding: 12px 18px;
+  font-size: clamp(14px, 2.2vh, 20px);
+}
+.locked-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.locked-side {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  text-align: center;
+}
+.locked-side .qr {
+  width: clamp(130px, 30vh, 230px);
+  height: auto;
+  border-radius: 16px;
+  background: #fff;
+  padding: 6px;
+}
+.locked-side .dev-codes b {
+  font-size: clamp(16px, 2.6vh, 22px);
+}
+@media (max-width: 760px) {
+  .locked-card {
+    flex-direction: column !important;
+  }
+}
+.locked-card {
+  padding: clamp(16px, 3.5vh, 36px) clamp(18px, 3vw, 40px) !important;
+  border-radius: 28px;
+  background: rgba(8, 10, 34, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 30px 80px -20px rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(14px);
+  max-height: 96vh;
+}
+.locked-actions .btn {
+  white-space: nowrap;
+}
+@media (max-height: 480px) {
+  .locked-card {
+    gap: 18px !important;
+  }
+  .locked-main {
+    gap: 8px;
+  }
+  .price-card {
+    padding: 8px 14px;
+  }
+  .locked-actions .btn.xl {
+    padding: 10px 18px;
+    font-size: 15px;
+  }
+  .locked-badge {
+    width: 48px;
+    height: 48px;
+  }
+}
