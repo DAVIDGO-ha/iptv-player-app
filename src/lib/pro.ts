@@ -42,6 +42,18 @@ export function proFor(kind: string, url: string): boolean {
   return proPreferred() || kind === 'episode' || /\.(mkv|avi)(\?|$)/i.test(url)
 }
 
+/** Android app (phone or TV): formats that never have sound / picture in the built-in player go straight to the Pro player.
+ *  Everything else may play inside the dashboard first (the right-hand screen), like Live TV. */
+export function mustPro(kind: string, url: string): boolean {
+  if (!hasNativePro()) return false
+  let e = 'auto'
+  try {
+    e = JSON.parse(localStorage.getItem('ip.settings') || '{}').engine || 'auto'
+  } catch {}
+  if (e === 'builtin') return false
+  return kind === 'episode' || /\.(mkv|avi)(\?|$)/i.test(url)
+}
+
 /** Plays the stream in the Pro player. Resolves with the position (seconds) when the user comes back, or null. */
 export async function playPro(o: {
   url: string
