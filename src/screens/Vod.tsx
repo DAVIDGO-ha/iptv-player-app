@@ -6,7 +6,7 @@ import { episodeStream, streamFor } from '../lib/catalog'
 import { xtSeriesInfo, xtVodInfo } from '../lib/xtream'
 import { useEngine } from '../player/useEngine'
 import { useWide } from './Live'
-import { autoProOk, playPro, proFor, proPreferred } from '../lib/pro'
+import { autoProOk, mustPro, playPro } from '../lib/pro'
 import type { Episode, Item, Kind, PlayRequest } from '../lib/types'
 
 export function Library({ kind }: { kind: 'movie' | 'series' }) {
@@ -38,7 +38,7 @@ export function Library({ kind }: { kind: 'movie' | 'series' }) {
   const { shown, sentinel } = useProgressive(list, 48)
   const title = kind === 'movie' ? 'Movies' : 'Series'
   const layout = useWide() // big screens: same layout as Live TV
-  const wide = layout && !proPreferred() // Firestick / Android TV: open the details page, play in the Pro player
+  const wide = layout // phone, PC and TV: player on the right (full screen uses the Pro player on TVs)
   const [sel, setSel] = useState<Item | null>(null)
   // Big screens (laptop, TV, phone in landscape): play inside the dashboard, keep the list visible
   const open = (i: Item) => (wide ? setSel(i) : app.nav.push(kind, { id: i.id, item: i }))
@@ -284,9 +284,9 @@ export function MovieDetail({ id, given, pane }: { id: string; given?: Item; pan
       history: { kind: 'movie', id, name: item.name, image: item.logo },
       startAt: from,
     })
-  const play = (from = 0) => (pane && !proFor('movie', makeReq(from).url) ? setInline(makeReq(from)) : app.play(makeReq(from)))
+  const play = (from = 0) => (pane && !mustPro('movie', makeReq(from).url) ? setInline(makeReq(from)) : app.play(makeReq(from)))
   // In the dashboard the movie starts playing as soon as it is picked
-  if (pane && !autoStarted.current && app.active && !proFor('movie', makeReq(0).url)) {
+  if (pane && !autoStarted.current && app.active && !mustPro('movie', makeReq(0).url)) {
     autoStarted.current = true
     const first = makeReq(resumeAt || 0)
     setTimeout(() => setInline((x) => x || first))
@@ -402,7 +402,7 @@ export function SeriesDetail({ id, resume, given, pane }: { id: string; resume?:
     const idx = list.indexOf(e)
     const h = app.history['ep:' + e.id]
     const url = episodeStream(app.active!, e)
-    ;(pane && !full && !proFor('episode', url) ? setInline : app.play)({
+    ;(pane && !full && !mustPro('episode', url) ? setInline : app.play)({
       kind: 'episode',
       title: item.name,
       subtitle: `S${e.season} · E${e.episode} — ${e.title}`,
@@ -425,7 +425,7 @@ export function SeriesDetail({ id, resume, given, pane }: { id: string; resume?:
 
   // In the dashboard the next episode starts playing as soon as the series is picked
   useEffect(() => {
-    if (pane && !inline && nextUp && !proFor('episode', '')) play(nextUp)
+    if (pane && !inline && nextUp && !mustPro('episode', '')) play(nextUp)
   }, [nextUp?.id])
   const back = Array.isArray(info?.backdrop_path) ? info.backdrop_path[0] : info?.backdrop_path
   const playingEp = inline?.historyKey?.slice(3)
