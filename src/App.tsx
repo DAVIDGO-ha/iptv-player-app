@@ -154,15 +154,17 @@ export function App() {
           </nav>
           <div className="top-icons">
             <Clock />
+            <button className="top-mini" onClick={() => app.active && (app.load(app.active, true), app.syncCloud())} title="Refresh">
+              <Icon n="refresh" s={15} /> <span>REFRESH</span>
+            </button>
+            <button className="top-mini" onClick={() => app.nav.tab('playlists')} title="Change playlist">
+              <Icon n="list" s={15} /> <span>CHANGE PLAYLIST</span>
+            </button>
             {ICONS.map(([r, ic, l]) => (
               <button key={r} className={'icon-btn ' + (root === r ? 'on' : '')} onClick={() => app.nav.tab(r)} aria-label={l} title={l}>
                 <Icon n={ic} />
               </button>
             ))}
-            <button className="pl-chip" onClick={() => app.nav.tab('playlists')} title="Playlists">
-              <Icon n="list" s={16} />
-              <span className="ellip">{app.active?.name}</span>
-            </button>
           </div>
         </header>
       )}
