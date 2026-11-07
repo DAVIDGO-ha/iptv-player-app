@@ -13,6 +13,18 @@ import com.getcapacitor.annotation.CapacitorPlugin;
 @CapacitorPlugin(name = "VlcPlayer")
 public class VlcPlayerPlugin extends Plugin {
 
+    // Stable hardware ID (survives reinstall / clearing data) → same MAC Address and same free trial for this device
+    @PluginMethod
+    public void hwid(PluginCall call) {
+        String id = null;
+        try {
+            id = android.provider.Settings.Secure.getString(getContext().getContentResolver(), android.provider.Settings.Secure.ANDROID_ID);
+        } catch (Exception ignored) {}
+        com.getcapacitor.JSObject r = new com.getcapacitor.JSObject();
+        r.put("id", id == null ? "" : id);
+        call.resolve(r);
+    }
+
     @PluginMethod
     public void play(PluginCall call) {
         String url = call.getString("url");
