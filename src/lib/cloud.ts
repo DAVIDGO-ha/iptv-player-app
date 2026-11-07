@@ -56,10 +56,32 @@ export async function fetchCloudPlaylists(): Promise<CloudPlaylist[]> {
   const j = await call(`/api/device/playlists?id=${encodeURIComponent(deviceId())}&key=${deviceKey()}`)
   // Blocked from the admin dashboard → remember it (works offline too) until unblocked
   write('ip.blocked', !!j?.blocked)
+  if (j?.license) write('ip.license', j.license)
   window.dispatchEvent(new Event('ip-blocked'))
   return Array.isArray(j?.playlists) ? j.playlists : []
 }
 export const isBlocked = () => !!read<boolean>('ip.blocked', false)
+
+// ——— Licence: 7-day free trial per device, then $5 / year or $15 lifetime (activated from the admin dashboard) ———
+export type License = { trialEnd?: string; subEnd?: string | null; lifetime?: boolean }
+export const PRICES = { year: '$5', lifetime: '$15' }
+export const WHATSAPP = '447473966835'
+const DAY = 86400000
+export function licenseInfo(): { state: 'trial' | 'active' | 'lifetime' | 'expired'; days: number; until?: number; wasPaid: boolean } {
+  const l = read<License | null>('ip.license', null)
+  let first = read<number>('ip.firstRun', 0)
+  if (!first) write('ip.firstRun', (first = Date.now()))
+  const now = Date.now()
+  if (l?.lifetime) return { state: 'lifetime', days: 0, wasPaid: true }
+  const paid = l?.subEnd ? Date.parse(l.subEnd + 'T23:59:59') : 0
+  if (paid > now) return { state: 'active', days: Math.ceil((paid - now) / DAY), until: paid, wasPaid: true }
+  const trialEnd = l?.trialEnd ? Date.parse(l.trialEnd) : first + 7 * DAY
+  if (trialEnd > now) return { state: 'trial', days: Math.ceil((trialEnd - now) / DAY), until: trialEnd, wasPaid: false }
+  return { state: 'expired', days: 0, wasPaid: !!paid }
+}
+export const isExpired = () => licenseInfo().state === 'expired'
+export const whatsappLink = () =>
+  `https://wa.me/${WHATSAPP}?text=${encodeURIComponent(`Hi, I want to activate IPTV PLAYER.\nMAC Address: ${deviceId()}\nDevice Key: ${deviceKey()}`)}`
 
 export const toPlaylist = (c: CloudPlaylist): Playlist => ({
   id: 'cloud-' + c.id,
