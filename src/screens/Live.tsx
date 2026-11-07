@@ -61,6 +61,16 @@ export function Live({ sports = false }: { sports?: boolean }) {
     return g.cat === 'fav' || g.cat === 'recent' ? l : sortItems(l, sort)
   }, [items, g.cat, q, sort, app.favs.live])
   const { shown, sentinel } = useProgressive(list, 80)
+  // Big screens: the right side plays straight away (last channel watched in this list, else the first one)
+  useEffect(() => {
+    if (!preview || !list.length || (sel && list.some((i) => i.id === sel.id))) return
+    const last = Object.values(app.history)
+      .filter((h) => h.kind === 'live')
+      .sort((a, b) => b.at - a.at)
+      .map((h) => list.find((i) => i.id === h.id))
+      .find(Boolean)
+    setSel(last || list[0])
+  }, [preview, list])
 
   const catList = [
     { id: 'all', name: sports ? 'All Sports' : 'All Channels', count: items.length, locked: false },
