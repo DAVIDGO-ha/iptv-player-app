@@ -10,6 +10,7 @@ import { loadEpg } from '../lib/epg'
 import type { Kind } from '../lib/types'
 import { canPro } from '../lib/pro'
 import { COUNTRIES } from '../lib/bgflag'
+import { LANGS } from '../lib/i18n'
 
 const ACCENTS = ['#FF2D3A', '#0A84FF', '#5E5CE6', '#BF5AF2', '#FF375F', '#FF9F0A', '#30D158', '#FFFFFF']
 export const VERSION = '1.0.0'
@@ -189,6 +190,15 @@ export function Settings() {
       </Group>
 
       <Group title="Appearance">
+        <Row icon="info" label="App language" sub="Whole app in your language (Auto = language of your country)">
+          <select className="select" value={s.uiLang || 'auto'} onChange={(e) => set({ uiLang: e.target.value })}>
+            {LANGS.map(([c, n]) => (
+              <option key={c} value={c}>
+                {n}
+              </option>
+            ))}
+          </select>
+        </Row>
         <Row icon="tv" label="Theme">
           <Segmented value={s.theme} onChange={(v) => set({ theme: v })} options={[{ v: 'dark', l: 'Dark' }, { v: 'light', l: 'Light' }, { v: 'auto', l: 'Auto' }]} />
         </Row>
