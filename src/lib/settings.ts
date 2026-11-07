@@ -74,6 +74,33 @@ export function onSettings(f: (s: Settings) => void) {
   return () => subs.delete(f)
 }
 
+// First start: use this device's hardware ID (Android ID / PC network MAC) so reinstalling keeps the same
+// MAC Address — and the same 7-day free trial — like IBO Player.
+export async function initDeviceId(): Promise<void> {
+  if (read<string>('ip.device', '')) return
+  const W = window as any
+  let hw = ''
+  try {
+    if (W.desktop?.mac) hw = String((await W.desktop.mac()) || '')
+    else if (W.Capacitor?.isNativePlatform?.()) {
+      const C = W.Capacitor
+      const r = C.nativePromise ? await C.nativePromise('VlcPlayer', 'hwid', {}) : await C.Plugins?.VlcPlayer?.hwid()
+      hw = String(r?.id || '')
+    }
+  } catch {}
+  let hex = hw.toUpperCase().replace(/[^0-9A-F]/g, '')
+  if (hex.length > 12) {
+    // Android ID (16 hex) → fold into 6 bytes
+    let a = 0x811c9dc5, b = 0x01000193
+    for (const c of hex) {
+      a = Math.imul(a ^ c.charCodeAt(0), 16777619) >>> 0
+      b = Math.imul(b ^ c.charCodeAt(0), 2246822519) >>> 0
+    }
+    hex = (a.toString(16).padStart(8, '0') + b.toString(16).padStart(8, '0')).slice(0, 12).toUpperCase()
+  }
+  if (hex.length === 12 && !/^0+$/.test(hex)) write('ip.device', hex.match(/.{2}/g)!.join(':'))
+}
+
 export function deviceId(): string {
   let id = read<string>('ip.device', '')
   if (!id) {
