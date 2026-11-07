@@ -5,7 +5,7 @@ import { xtLogin } from '../lib/xtream'
 import { parseM3U } from '../lib/m3u'
 import { fetchText, fixProto } from '../lib/net'
 import { deviceId } from '../lib/settings'
-import { activateUrl, deviceKey } from '../lib/cloud'
+import { activateUrl, deviceKey, licenseInfo, PRICES, whatsappLink } from '../lib/cloud'
 import { SITE_LABEL } from '../config'
 import { Header } from './common'
 import type { Playlist } from '../lib/types'
@@ -285,6 +285,77 @@ export function Blocked() {
         <button className="btn glass-btn xl" onClick={() => app.syncCloud(true)} data-autofocus>
           {app.syncing ? <Spinner size={18} /> : <Icon n="refresh" s={20} />} Check again
         </button>
+      </div>
+    </div>
+  )
+}
+
+// Free trial (7 days) or subscription ended → the app is locked until activated from the admin dashboard
+export function Locked() {
+  const app = useApp()
+  const lic = licenseInfo()
+  const wa = whatsappLink()
+  const qr = `https://api.qrserver.com/v1/create-qr-code/?size=360x360&margin=8&data=${encodeURIComponent(wa)}`
+  return (
+    <div className="welcome blocked-screen locked-screen">
+      <div className="welcome-glow" />
+      <div className="welcome-card locked-card">
+        <div className="locked-main">
+          <div className="locked-head">
+            <div className="blocked-badge locked-badge">
+              <Icon n="lock" s={30} />
+            </div>
+            <div>
+              <h1 className="hero-title">{lic.wasPaid ? 'Your subscription has ended' : 'Your 7-day free trial has ended'}</h1>
+              <p className="muted">Activate IPTV PLAYER on this device to keep watching.</p>
+            </div>
+          </div>
+          <div className="price-row">
+            <div className="price-card">
+              <span className="muted small">1 Year</span>
+              <b>{PRICES.year}</b>
+              <span className="muted small">per device / year</span>
+            </div>
+            <div className="price-card best">
+              <span className="price-tag">BEST VALUE</span>
+              <span className="muted small">Lifetime</span>
+              <b>{PRICES.lifetime}</b>
+              <span className="muted small">pay once, forever</span>
+            </div>
+          </div>
+          <div className="blocked-contact">
+            <div>
+              <Icon n="info" s={20} /> WhatsApp <b>+44 7473 966835</b>
+            </div>
+            <div>
+              <Icon n="tv" s={20} /> <b>{SITE_LABEL}</b>
+            </div>
+          </div>
+          <div className="locked-actions">
+            <button className="btn glass-btn xl" onClick={() => app.syncCloud(true)} data-autofocus>
+              {app.syncing ? <Spinner size={18} /> : <Icon n="refresh" s={20} />} I have paid — check again
+            </button>
+            {!document.documentElement.classList.contains('tv') && (
+              <a className="btn primary xl" href={wa} target="_blank" rel="noreferrer">
+                <Icon n="info" s={20} /> WhatsApp us
+              </a>
+            )}
+          </div>
+        </div>
+        <div className="locked-side">
+          <img className="qr" src={qr} alt="" referrerPolicy="no-referrer" onError={(e) => e.currentTarget.setAttribute('data-err', '1')} />
+          <p className="small muted">Scan to send us your codes on WhatsApp</p>
+          <div className="dev-codes">
+            <div>
+              <span className="muted small">MAC Address</span>
+              <b>{deviceId()}</b>
+            </div>
+            <div>
+              <span className="muted small">Device Key</span>
+              <b>{deviceKey()}</b>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   )
