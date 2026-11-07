@@ -5,6 +5,7 @@ import { App } from './App'
 import { initSpatialNav } from './ui'
 import './styles.css'
 import { initCountryBackground } from './lib/bgflag'
+import { initDeviceId } from './lib/settings'
 
 // Samsung Tizen: register remote media / colour keys
 try {
@@ -44,10 +45,13 @@ try {
   App?.addListener('backButton', () => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })))
 } catch {}
 
-createRoot(document.getElementById('root')!).render(
-  <StoreProvider>
-    <App />
-  </StoreProvider>
+// Hardware MAC / device ID first (max 1.5 s), then start the app
+Promise.race([initDeviceId(), new Promise((r) => setTimeout(r, 1500))]).finally(() =>
+  createRoot(document.getElementById('root')!).render(
+    <StoreProvider>
+      <App />
+    </StoreProvider>
+  )
 )
 
 initCountryBackground() // UK flag for the UK, German flag for Germany
