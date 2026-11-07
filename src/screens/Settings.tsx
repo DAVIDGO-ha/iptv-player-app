@@ -3,7 +3,7 @@ import { useApp } from '../store'
 import { Icon, Modal, PinPad, Segmented, Toggle } from '../ui'
 import { Header } from './common'
 import { deviceId, DEFAULTS } from '../lib/settings'
-import { deviceKey, resetDeviceKey } from '../lib/cloud'
+import { deviceKey, licenseInfo, PRICES, resetDeviceKey } from '../lib/cloud'
 import { SITE_LABEL } from '../config'
 import { idbDel } from '../lib/idb'
 import { loadEpg } from '../lib/epg'
@@ -85,6 +85,17 @@ export function Settings() {
 
       <Group title="Device activation" foot={`Open ${SITE_LABEL}/activate on your phone and enter these codes to add playlists to this device.`}>
         <Row icon="tv" label="MAC Address" sub={deviceId()} />
+        <Row
+          icon="star"
+          label="Subscription"
+          sub={(() => {
+            const l = licenseInfo()
+            if (l.state === 'lifetime') return 'Lifetime — activated'
+            if (l.state === 'active') return 'Active until ' + new Date(l.until!).toLocaleDateString()
+            if (l.state === 'trial') return `Free trial — ${l.days} day${l.days === 1 ? '' : 's'} left · then ${PRICES.year}/year or ${PRICES.lifetime} lifetime`
+            return 'Expired'
+          })()}
+        />
         <Row icon="lock" label="Device Key" sub={deviceKey()} />
         <Row icon="refresh" label={app.syncing ? 'Syncing…' : 'Sync playlists from website'} sub={app.lastSync ? 'Last sync ' + new Date(app.lastSync).toLocaleTimeString() : undefined} onClick={() => app.syncCloud(true)} />
         <Row
