@@ -7,15 +7,16 @@ import { streamFor } from '../lib/catalog'
 import { epgCached, nowNext, programmesFor } from '../lib/epg'
 import { timeshiftUrl, xtArchive, xtShortEpg } from '../lib/xtream'
 import { proxied } from '../lib/net'
-import { playPro, proPreferred } from '../lib/pro'
+import { playPro } from '../lib/pro'
 import type { Item, Programme } from '../lib/types'
 
 export const useWide = () => {
   const q = '(min-width: 1000px)'
-  const [w, setW] = useState(() => matchMedia(q).matches)
+  const tv = () => document.documentElement.classList.contains('tv') // every TV: same 3-column layout
+  const [w, setW] = useState(() => tv() || matchMedia(q).matches)
   useEffect(() => {
     const m = matchMedia(q)
-    const f = () => setW(m.matches)
+    const f = () => setW(tv() || m.matches)
     m.addEventListener('change', f)
     return () => m.removeEventListener('change', f)
   }, [])
@@ -39,7 +40,7 @@ export function Live({ sports = false }: { sports?: boolean }) {
   const [sort, setSort] = useState('num')
   const [sel, setSel] = useState<Item | null>(null)
   const wide = useWide()
-  const preview = wide && !proPreferred() // Firestick / Android TV: channels open straight in the Pro player
+  const preview = wide // TV too: first OK = preview on the right, second OK = full screen (Pro player on TVs)
   useEffect(() => localStorage.setItem(catKey, g.cat), [g.cat])
   const title = sports ? 'Sports' : 'Live TV'
 
