@@ -37,7 +37,8 @@ export function Library({ kind }: { kind: 'movie' | 'series' }) {
   }, [items, g.cat, sort, q, app.favs, app.favItems])
   const { shown, sentinel } = useProgressive(list, 48)
   const title = kind === 'movie' ? 'Movies' : 'Series'
-  const wide = useWide() && !proPreferred() // Firestick / Android TV: open the details page, play in the Pro player
+  const layout = useWide() // big screens: same layout as Live TV
+  const wide = layout && !proPreferred() // Firestick / Android TV: open the details page, play in the Pro player
   const [sel, setSel] = useState<Item | null>(null)
   // Big screens (laptop, TV, phone in landscape): play inside the dashboard, keep the list visible
   const open = (i: Item) => (wide ? setSel(i) : app.nav.push(kind, { id: i.id, item: i }))
@@ -81,18 +82,90 @@ export function Library({ kind }: { kind: 'movie' | 'series' }) {
       {g.pin}
     </div>
   )
-  if (!wide) return page
+  if (!layout) return page
+  // Same design as Live TV: categories on the left, titles in the middle, the player / details on the right
+  const catList = [
+    ...(lazy ? [] : [{ id: 'all', name: kind === 'movie' ? 'All Movies' : 'All Series', count: items.length as number | undefined, locked: false }]),
+    { id: 'fav', name: 'My List', count: app.favs[kind].length as number | undefined, locked: false },
+    ...cats.map((c) => ({ id: c.id, name: c.name, count: c.count as number | undefined, locked: app.isLocked(c) })),
+  ]
   return (
-    <div className="vod-split">
-      <div className="vod-left">{page}</div>
-      <section className="vod-pane">
-        {sel ? (
-          kind === 'movie' ? <MovieDetail key={sel.id} id={sel.id} given={sel} pane /> : <SeriesDetail key={sel.id} id={sel.id} given={sel} pane />
-        ) : (
-          <Empty icon={kind} title={kind === 'movie' ? 'Pick a movie' : 'Pick a series'} text="It plays right here — keep browsing while you watch. Use Full Screen any time." />
-        )}
+    <div className="live wide vod-live">
+      <aside className="live-cats">
+        <h1 className="large-title pad">{title}</h1>
+        <div className="cat-scroll">
+          {catList.map((c) => (
+            <button key={c.id} className={'cat-row ' + (g.cat === c.id ? 'on' : '')} onClick={() => g.pick(c.id, c.locked)}>
+              {c.id === 'fav' && <Icon n="heart" s={16} />}
+              {c.locked && <Icon n="lock" s={15} />}
+              <span className="ellip">{c.name}</span>
+              {!!c.count && <span className="cnt">{c.count}</span>}
+            </button>
+          ))}
+        </div>
+      </aside>
+      <section className="live-list">
+        <div className="toolbar">
+          <div className="search-box">
+            <Icon n="search" s={18} />
+            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={`Search ${title.toLowerCase()}`} />
+          </div>
+          <SortSelect value={sort} onChange={setSort} />
+        </div>
+        <div className="ch-scroll">
+          {shown.map((i) => (
+            <VodRow key={i.id} item={i} active={sel?.id === i.id} progress={kind === 'movie' ? prog(i) : undefined} fav={app.isFav(kind, i.id)} onClick={() => open(i)} />
+          ))}
+          {sentinel}
+          {busy && (
+            <div className="center-fill" style={{ height: 200 }}>
+              <Spinner size={32} />
+            </div>
+          )}
+          {!busy && !list.length && <Empty icon="search" title="Nothing here" text={g.cat === 'fav' ? 'Add titles to My List to see them here.' : undefined} />}
+        </div>
       </section>
+      {wide && (
+        <section className="live-preview vod-preview">
+          {sel ? (
+            kind === 'movie' ? <MovieDetail key={sel.id} id={sel.id} given={sel} pane /> : <SeriesDetail key={sel.id} id={sel.id} given={sel} pane />
+          ) : (
+            <Empty icon={kind} title={kind === 'movie' ? 'Pick a movie' : 'Pick a series'} text="It plays right here — keep browsing while you watch. Use Full Screen any time." />
+          )}
+        </section>
+      )}
+      {g.pin}
     </div>
+  )
+}
+
+// One title in the middle list (like a channel row): poster, name, year · rating
+function VodRow({ item, active, progress, fav, onClick }: { item: Item; active?: boolean; progress?: number; fav?: boolean; onClick: () => void }) {
+  return (
+    <button className={'ch-row vod-row ' + (active ? 'on' : '')} onClick={onClick} title={item.name}>
+      <Img className="vod-thumb" src={item.logo} alt={item.name} />
+      <div className="ch-text">
+        <div className="ellip strong">{item.name}</div>
+        <div className="small muted row gap center-y">
+          {item.year && <span>{item.year}</span>}
+          {!!item.rating && item.rating > 0 && (
+            <span className="row center-y" style={{ gap: 3 }}>
+              <Icon n="star" s={12} fill className="accent" /> {item.rating.toFixed(1)}
+            </span>
+          )}
+        </div>
+        {progress != null && progress > 0 && (
+          <div className="bar thin">
+            <i style={{ width: Math.min(100, progress * 100) + '%' }} />
+          </div>
+        )}
+      </div>
+      {fav && (
+        <span className="ch-flags">
+          <Icon n="heart" s={16} fill className="accent" />
+        </span>
+      )}
+    </button>
   )
 }
 
