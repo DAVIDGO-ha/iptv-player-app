@@ -119,6 +119,10 @@ function create() {
     webPreferences: { webSecurity: false, backgroundThrottling: false, preload: path.join(__dirname, 'preload.cjs') }, // reach any IPTV server without a proxy
   })
   Menu.setApplicationMenu(null)
+  // Some IPTV panels (e.g. TREX) only answer real IPTV players: send the same player name as the TV app
+  // for every request from the app window (playlists, channel lists, live TV, movies, series).
+  win.webContents.session.setUserAgent(UA)
+  win.webContents.setUserAgent(UA)
   win.loadFile(path.join(__dirname, '../../dist/index.html'))
   // F11 / F = fullscreen, external links open in the normal browser
   win.webContents.on('before-input-event', (_, input) => {
