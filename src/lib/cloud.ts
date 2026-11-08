@@ -86,7 +86,11 @@ export const whatsappLink = () =>
 
 // An M3U link like http://host/get.php?username=…&password=… is an Xtream line: load it with the Xtream API
 // (a few seconds) instead of downloading the whole M3U file (can be 300+ MB → stuck on "Loading playlist" on a Firestick).
-const xtreamOf = (u?: string) => {
+// Our proxy links (designbyt.store/p/<token>/playlist.m3u) too: their M3U hides which entries are movies / series,
+// but the same token works as an Xtream login there → Live TV, Movies and Series all show.
+export const xtreamOf = (u?: string) => {
+  const d = (u || '').trim().match(/^(https?:\/\/(?:www\.)?designbyt\.store)\/p\/([A-Za-z0-9_-]+)\/playlist\.m3u/i)
+  if (d) return { server: 'https://designbyt.store', username: d[2], password: 'designbyt' }
   const m = (u || '').trim().match(/^(https?:\/\/[^/?#]+)\/get\.php\?(.*)$/i)
   if (!m) return null
   const q = new URLSearchParams(m[2])
