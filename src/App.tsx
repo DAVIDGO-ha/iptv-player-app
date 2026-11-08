@@ -7,7 +7,7 @@ import { Home, Loading, ErrorState } from './screens/Home'
 import { Live } from './screens/Live'
 import { Guide } from './screens/Guide'
 import { Library, MovieDetail, SeriesDetail } from './screens/Vod'
-import { Search, Favorites, More, MultiView, History, Account } from './screens/Other'
+import { Search, Favorites, More, MultiView, History, Account, Contact } from './screens/Other'
 import { Settings } from './screens/Settings'
 import { playLive } from './screens/common'
 
@@ -17,7 +17,7 @@ const NAV = [
   ['movies', 'Movies'],
   ['series', 'Series'],
   ['sports', 'Sports'],
-  ['guide', 'TV Guide'],
+  ['contact', 'Contact'],
 ]
 const ICONS = [
   ['search', 'search', 'Search'],
@@ -118,6 +118,7 @@ export function App() {
   else if (route.name === 'live') screen = <Live key="live" />
   else if (route.name === 'sports') screen = <Live sports key="sports" />
   else if (route.name === 'guide') screen = <Guide />
+  else if (route.name === 'contact') screen = <Contact />
   else if (route.name === 'movies') screen = <Library kind="movie" key="m" />
   else if (route.name === 'series' && !p.id) screen = <Library kind="series" key="s" />
   else if (route.name === 'movie') screen = <MovieDetail id={p.id} given={p.item} key={p.id} />
@@ -133,7 +134,7 @@ export function App() {
 
   const bare = route.name === 'welcome' || !app.playlists.length
   const root = app.stack[0].name
-  const tabOf = (r: string) => (['sports', 'guide', 'search', 'favorites', 'multiview', 'settings', 'history', 'playlists', 'account'].includes(r) ? 'more' : r)
+  const tabOf = (r: string) => (['sports', 'guide', 'contact', 'search', 'favorites', 'multiview', 'settings', 'history', 'playlists', 'account'].includes(r) ? 'more' : r)
 
   return (
     <div className={'app ' + (bare ? 'bare' : '')}>
