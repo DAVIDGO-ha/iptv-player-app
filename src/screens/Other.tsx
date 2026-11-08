@@ -5,6 +5,8 @@ import { ChannelRow, Header, Poster, Rail, playLive } from './common'
 import { useEngine } from '../player/useEngine'
 import { streamFor } from '../lib/catalog'
 import type { Item } from '../lib/types'
+import { deviceKey, whatsappLink, WHATSAPP_LABEL } from '../lib/cloud'
+import { deviceId } from '../lib/settings'
 
 export function Search() {
   const app = useApp()
@@ -108,7 +110,7 @@ export function Favorites() {
 export function More() {
   const app = useApp()
   const links = [
-    ['guide', 'guide', 'TV Guide'],
+    ['contact', 'info', 'Contact us'],
     ['search', 'search', 'Search'],
     ['favorites', 'heart', 'Favorites'],
     ['multiview', 'grid', 'Multi-View'],
@@ -321,5 +323,40 @@ export function ChannelPicker({ onPick, onClose }: { onPick: (c: Item) => void; 
         ))}
       </div>
     </Modal>
+  )
+}
+
+// Contact: WhatsApp (QR code on TVs, button on phones / PCs)
+export function Contact() {
+  const tv = document.documentElement.classList.contains('tv')
+  const wa = whatsappLink()
+  const qr = `https://api.qrserver.com/v1/create-qr-code/?size=360x360&margin=8&data=${encodeURIComponent(wa)}`
+  return (
+    <div className="page narrow">
+      <Header title="Contact" />
+      <div className="contact-card glass">
+        <img className="qr" src={qr} alt="" referrerPolicy="no-referrer" onError={(e) => e.currentTarget.setAttribute('data-err', '1')} />
+        <div className="contact-text">
+          <div className="eyebrow">Need help? Contact us on WhatsApp</div>
+          <div className="contact-num">{WHATSAPP_LABEL}</div>
+          <p className="muted small">Scan the code with your phone, or send us a message. Include your MAC Address and Device Key:</p>
+          <div className="dev-codes">
+            <div>
+              <span className="muted small">MAC Address</span>
+              <b>{deviceId()}</b>
+            </div>
+            <div>
+              <span className="muted small">Device Key</span>
+              <b>{deviceKey()}</b>
+            </div>
+          </div>
+          {!tv && (
+            <a className="btn primary xl" href={wa} target="_blank" rel="noreferrer" data-autofocus>
+              <Icon n="info" s={20} /> WhatsApp us
+            </a>
+          )}
+        </div>
+      </div>
+    </div>
   )
 }
