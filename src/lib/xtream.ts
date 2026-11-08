@@ -89,6 +89,12 @@ export async function xtCategoryItems(p: Playlist, kind: 'movie' | 'series', cat
   return (Array.isArray(j) ? j : []).map(kind === 'movie' ? mapMovie : mapSeries)
 }
 
+/** Every movie / series of the line (used by Search, so a title is found in any category). */
+export async function xtAllItems(p: Playlist, kind: 'movie' | 'series'): Promise<Item[]> {
+  const j = await fetchJSON(api(p, kind === 'movie' ? 'get_vod_streams' : 'get_series'), 180000)
+  return (Array.isArray(j) ? j : []).map(kind === 'movie' ? mapMovie : mapSeries)
+}
+
 const u = (p: Playlist) => `${enc(p.username!)}/${enc(p.password!)}`
 export const liveUrl = (p: Playlist, id: string, fmt: string) => `${base(p)}/live/${u(p)}/${id}.${fmt}`
 export const movieUrl = (p: Playlist, id: string, ext = 'mp4') => `${base(p)}/movie/${u(p)}/${id}.${ext}`
