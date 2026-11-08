@@ -268,7 +268,7 @@ export function Blocked() {
             <Icon n="tv" s={20} /> <b>{SITE_LABEL.replace(/^www\./, 'www.')}</b>
           </div>
           <div>
-            <Icon n="info" s={20} /> WhatsApp <b>+44 7473 966835</b>
+            <Icon n="info" s={20} /> WhatsApp <b>+44 7473 986835</b>
           </div>
         </div>
         <p className="small muted">Give us your MAC Address and Device Key:</p>
@@ -325,7 +325,7 @@ export function Locked() {
           </div>
           <div className="blocked-contact">
             <div>
-              <Icon n="info" s={20} /> WhatsApp <b>+44 7473 966835</b>
+              <Icon n="info" s={20} /> WhatsApp <b>+44 7473 986835</b>
             </div>
             <div>
               <Icon n="tv" s={20} /> <b>{SITE_LABEL}</b>
