@@ -7,6 +7,7 @@ import './styles.css'
 import { initCountryBackground } from './lib/bgflag'
 import { initDeviceId } from './lib/settings'
 import { initI18n } from './lib/i18n'
+import { refreshRoutes } from './lib/net'
 
 // Samsung Tizen: register remote media / colour keys
 try {
@@ -55,6 +56,7 @@ Promise.race([initDeviceId(), new Promise((r) => setTimeout(r, 1500))]).finally(
   )
 )
 initI18n() // French / German / Spanish interface
+refreshRoutes().catch(() => {}) // keep anti-block addresses up to date
 
 initCountryBackground() // UK flag for the UK, German flag for Germany
 
