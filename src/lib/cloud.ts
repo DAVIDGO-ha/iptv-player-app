@@ -65,7 +65,8 @@ export const isBlocked = () => !!read<boolean>('ip.blocked', false)
 // ——— Licence: 7-day free trial per device, then $5 / year or $15 lifetime (activated from the admin dashboard) ———
 export type License = { trialEnd?: string; subEnd?: string | null; lifetime?: boolean }
 export const PRICES = { year: '$5', lifetime: '$15' }
-export const WHATSAPP = '447473966835'
+export const WHATSAPP = '447473986835'
+export const WHATSAPP_LABEL = '+44 7473 986835'
 const DAY = 86400000
 export function licenseInfo(): { state: 'trial' | 'active' | 'lifetime' | 'expired'; days: number; until?: number; wasPaid: boolean } {
   const l = read<License | null>('ip.license', null)
