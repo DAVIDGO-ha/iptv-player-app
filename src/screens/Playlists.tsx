@@ -5,7 +5,7 @@ import { xtLogin } from '../lib/xtream'
 import { parseM3U } from '../lib/m3u'
 import { fetchText, fixProto } from '../lib/net'
 import { deviceId } from '../lib/settings'
-import { activateUrl, deviceKey, licenseInfo, PRICES, whatsappLink } from '../lib/cloud'
+import { activateUrl, deviceKey, licenseInfo, PRICES, whatsappLink, xtreamOf } from '../lib/cloud'
 import { SITE_LABEL } from '../config'
 import { Header } from './common'
 import type { Playlist } from '../lib/types'
@@ -70,13 +70,13 @@ export function AddPlaylist({ edit }: { edit?: Playlist }) {
     setBusy(true)
     try {
       // An Xtream "get.php" M3U link → use the Xtream API instead (faster, and many panels block the M3U download)
-      const xt = (type === 'm3u' ? url : server).trim().match(/^(https?:\/\/[^/]+)\/get\.php\?(.*)$/i)
-      const xq = xt ? new URLSearchParams(xt[2]) : null
-      const isXt = type === 'xtream' || !!(xq?.get('username') && xq?.get('password'))
+      // (also our designbyt.store proxy links → Xtream, so Movies and Series show)
+      const xo = xtreamOf(type === 'm3u' ? url : server)
+      const isXt = type === 'xtream' || !!xo
       if (isXt) {
-        const sv = xq?.get('username') ? xt![1] : server.trim()
-        const us = xq?.get('username') || user.trim()
-        const pw = xq?.get('password') || pass.trim()
+        const sv = xo?.server || server.trim()
+        const us = xo?.username || user.trim()
+        const pw = xo?.password || pass.trim()
         if (!sv || !us || !pw) throw new Error('Please fill in server, username and password.')
         const p = { type: 'xtream' as const, name: name || hostOf(sv), server: sv, username: us, password: pw, epgUrl: epg }
         await xtLogin({ ...p, id: '', addedAt: 0 })
