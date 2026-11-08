@@ -192,7 +192,10 @@ export function PinPad({ title = 'Enter PIN', onDone, onClose }: { title?: strin
 export function useProgressive<T>(list: T[], step = 60) {
   const [n, setN] = useState(step)
   const ref = useRef<HTMLDivElement>(null)
-  useEffect(() => setN(step), [list])
+  // Only start again from the top when the list really changes (other category / search / sort) —
+  // not on every re-render, otherwise scrolling to the end jumps back up.
+  const key = list.length + '|' + ((list[0] as any)?.id ?? '') + '|' + ((list[list.length - 1] as any)?.id ?? '')
+  useEffect(() => setN(step), [key])
   useEffect(() => {
     const el = ref.current
     if (!el) return
