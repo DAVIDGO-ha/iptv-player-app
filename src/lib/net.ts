@@ -87,19 +87,23 @@ export const fixProto = (u: string) => {
   return p ? u.replace(/^https?:/i, p) : u
 }
 
-const FIRST_WAIT = 5 * 60000 // a new client's first load may take up to 5 minutes — after that, never again
+const MAX_WAIT = 2 * 60000 // new or old client: if the server does not answer within 2 minutes → switch IP
 
 export async function fetchText(url: string, timeout = 45000): Promise<string> {
   let r: Response | undefined
   let last: any
   const host = hostOf(url)
-  // First time with this server: be patient (big panels can take minutes the very first time)
+  // First time with this server: be patient (big panels can take a while) — but never more than 2 minutes
   const firstTime = !!host && !isIp(host) && !okHosts.has(host) && !routes[host]
-  const wait = firstTime ? Math.max(timeout, FIRST_WAIT) : timeout
+  const wait = firstTime ? MAX_WAIT : Math.min(Math.max(timeout, 45000), MAX_WAIT)
+  // tm = total time for this try (both http and https together)
   const tryAll = async (tm: number) => {
+    const end = Date.now() + tm
     for (const u of [url, swapProto(url)].filter(Boolean)) {
+      const left = end - Date.now()
+      if (left < 3000) break
       try {
-        r = await getOnce(u, tm, routes[host] ? host : undefined)
+        r = await getOnce(u, left, routes[host] ? host : undefined)
         if (r.ok) protoOk.set(hostOf(u), u.slice(0, u.indexOf(':') + 1).toLowerCase())
         if (r.ok || r.status < 500) return
       } catch (e: any) {
@@ -121,7 +125,7 @@ export async function fetchText(url: string, timeout = 45000): Promise<string> {
       const ips = await dohResolve(host)
       for (const ip of ips) {
         routes[host] = { ip, at: Date.now() }
-        await tryAll(Math.max(timeout, 60000))
+        await tryAll(60000)
         if (r && r.status < 500) break
         delete routes[host]
       }
