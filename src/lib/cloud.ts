@@ -84,14 +84,21 @@ export const isExpired = () => licenseInfo().state === 'expired'
 export const whatsappLink = () =>
   `https://wa.me/${WHATSAPP}?text=${encodeURIComponent(`Hi, I want to activate IPTV PLAYER.\nMAC Address: ${deviceId()}\nDevice Key: ${deviceKey()}`)}`
 
+// An M3U link like http://host/get.php?username=…&password=… is an Xtream line: load it with the Xtream API
+// (a few seconds) instead of downloading the whole M3U file (can be 300+ MB → stuck on "Loading playlist" on a Firestick).
+const xtreamOf = (u?: string) => {
+  const m = (u || '').trim().match(/^(https?:\/\/[^/?#]+)\/get\.php\?(.*)$/i)
+  if (!m) return null
+  const q = new URLSearchParams(m[2])
+  const username = q.get('username'), password = q.get('password')
+  return username && password ? { server: m[1], username, password } : null
+}
 export const toPlaylist = (c: CloudPlaylist): Playlist => ({
   id: 'cloud-' + c.id,
   name: c.name || 'My Playlist',
-  type: c.type === 'm3u' ? 'm3u' : 'xtream',
-  server: c.server,
-  username: c.username,
-  password: c.password,
-  url: c.url,
+  ...(c.type === 'm3u' && xtreamOf(c.url)
+    ? { type: 'xtream' as const, ...xtreamOf(c.url)!, url: undefined }
+    : { type: c.type === 'm3u' ? ('m3u' as const) : ('xtream' as const), server: c.server, username: c.username, password: c.password, url: c.url }),
   epgUrl: c.epgUrl,
   cloud: true,
   addedAt: c.updatedAt ? Date.parse(c.updatedAt) || 0 : 0,
