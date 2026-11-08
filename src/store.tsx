@@ -3,7 +3,7 @@ import { getSettings, onSettings, read, setSettings, write, type Settings } from
 import { episodeStream, loadCatalog, streamFor } from './lib/catalog'
 import { playPro, proFor } from './lib/pro'
 import { idbDel, idbGet, idbSet } from './lib/idb'
-import { xtCategoryItems } from './lib/xtream'
+import { xtAllItems, xtCategoryItems } from './lib/xtream'
 import { fetchCloudPlaylists, isBlocked, isExpired, licenseInfo, PRICES, toPlaylist } from './lib/cloud'
 import type { Catalog, Category, HistoryEntry, Item, Kind, PlayRequest, Playlist } from './lib/types'
 
@@ -30,6 +30,8 @@ function useStore() {
   const [favItems, setFavItems] = useState<Record<string, Item>>({}) // snapshots so lazy-loaded favorites still show
   const [catItems, setCatItems] = useState<Record<string, Item[]>>({}) // kind:categoryId → items (lazy sections)
   const [catBusy, setCatBusy] = useState<string>('')
+  const [allItems, setAllItems] = useState<Record<string, Item[]>>({}) // kind → every title (for Search)
+  const [allBusy, setAllBusy] = useState<string>('')
   const [history, setHistory] = useState<Record<string, HistoryEntry>>({})
   const [locked, setLocked] = useState<string[]>([])
   const [hidden, setHidden] = useState<string[]>([])
@@ -40,6 +42,7 @@ function useStore() {
     setFavs(read('ip.fav.' + pid, { live: [], movie: [], series: [] }))
     setFavItems(read('ip.favi.' + pid, {}))
     setCatItems({})
+    setAllItems({})
     setHistory(read('ip.hist.' + pid, {}))
     setLocked(read('ip.lock.' + pid, []))
     setHidden(read('ip.hide.' + pid, []))
@@ -289,6 +292,29 @@ function useStore() {
     [active?.id, catItems]
   )
 
+  // Search in a lazy section: load the full title list once (cached 12h) so any movie / series can be found
+  const searchAll = useCallback(
+    async (kind: 'movie' | 'series') => {
+      if (!active || active.type !== 'xtream' || allItems[kind] || allBusy === kind) return
+      setAllBusy(kind)
+      try {
+        const ck = `alli.${active.id}.${kind}`
+        const cached = await idbGet<{ at: number; items: Item[] }>(ck)
+        let items = cached && Date.now() - cached.at < 12 * 36e5 ? cached.items : null
+        if (!items) {
+          items = await xtAllItems(active, kind)
+          idbSet(ck, { at: Date.now(), items })
+        }
+        setAllItems((c) => ({ ...c, [kind]: items! }))
+      } catch (e: any) {
+        toast(e?.message || 'Search could not load the full list')
+      } finally {
+        setAllBusy('')
+      }
+    },
+    [active?.id, allItems, allBusy]
+  )
+
   // visible = not hidden, not locked (lazy sections include every category loaded so far)
   const visible = useCallback(
     (kind: Kind) => {
@@ -384,6 +410,9 @@ function useStore() {
     expired,
     catItems,
     catBusy,
+    allItems,
+    allBusy,
+    searchAll,
     findItem,
     favItems,
     reminders,
