@@ -18,13 +18,21 @@ export function Library({ kind }: { kind: 'movie' | 'series' }) {
   useEffect(() => {
     if (lazy && g.cat !== 'fav' && g.cat !== 'all') app.loadCat(kind, g.cat)
   }, [g.cat, lazy])
-  const busy = app.catBusy === kind + ':' + g.cat
+  const busy = app.catBusy === kind + ':' + g.cat || app.allBusy === kind
   const [sort, setSort] = useState('def')
   const [q, setQ] = useState('')
   useEffect(() => localStorage.setItem('ip.cat.' + kind, g.cat), [g.cat])
+  // Search looks in ALL titles of the line (not only the open category)
+  const searching = lazy && q.trim().length >= 2 && g.cat !== 'fav'
+  useEffect(() => {
+    if (searching) app.searchAll(kind)
+  }, [searching])
   const list = useMemo(() => {
-    let l =
-      g.cat === 'all'
+    const okCats = new Set(cats.filter((c) => !app.isLocked(c)).map((c) => c.id)) // not hidden, not locked
+    let l: Item[] =
+      searching && app.allItems[kind]
+        ? app.allItems[kind].filter((i) => okCats.has(i.categoryId))
+        : g.cat === 'all'
         ? items
         : g.cat === 'fav'
           ? (app.favs[kind].map((id) => app.findItem(kind, id)).filter(Boolean) as Item[])
@@ -34,7 +42,7 @@ export function Library({ kind }: { kind: 'movie' | 'series' }) {
       l = l.filter((i) => i.name.toLowerCase().includes(s))
     }
     return sortItems(l, sort)
-  }, [items, g.cat, sort, q, app.favs, app.favItems])
+  }, [items, g.cat, sort, q, app.favs, app.favItems, searching, app.allItems, cats])
   const { shown, sentinel } = useProgressive(list, 48)
   const title = kind === 'movie' ? 'Movies' : 'Series'
   const layout = useWide() // big screens: same layout as Live TV
