@@ -7,6 +7,7 @@ import { streamFor } from '../lib/catalog'
 import type { Item } from '../lib/types'
 import { deviceKey, whatsappLink, WHATSAPP_LABEL } from '../lib/cloud'
 import { deviceId } from '../lib/settings'
+import { canRecord } from '../lib/rec'
 
 export function Search() {
   const app = useApp()
@@ -115,6 +116,7 @@ export function More() {
     ['favorites', 'heart', 'Favorites'],
     ['multiview', 'grid', 'Multi-View'],
     ['history', 'history', 'Watch History'],
+    ...(canRecord() ? [['recordings', 'rec', 'Recordings']] : []),
     ['playlists', 'list', 'Playlists'],
     ['account', 'user', 'Account Info'],
     ['settings', 'settings', 'Settings'],
