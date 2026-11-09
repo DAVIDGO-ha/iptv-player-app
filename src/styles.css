@@ -3196,3 +3196,8 @@ html.tv .vod-cards .poster {
     align-items: center;
   }
 }
+
+/* Recording */
+.rec-on { color: #ff3b47 !important; border-color: #ff3b47 !important; }
+.rec-on .ic, .rec-dot .ic { color: #ff3b47; animation: recblink 1.2s ease-in-out infinite; }
+@keyframes recblink { 50% { opacity: 0.35; } }
