@@ -5,9 +5,10 @@
   "files": ["dist/**", "platforms/electron/main.cjs", "platforms/electron/preload.cjs", "!node_modules/**"],
   "extraMetadata": { "main": "platforms/electron/main.cjs", "type": "commonjs" },
   "npmRebuild": false,
+  "compression": "maximum",
   "extraResources": [{ "from": "platforms/electron/bin", "to": "bin" }],
-  "win": { "target": [{ "target": "nsis", "arch": ["x64", "ia32"] }], "icon": "public/icons/icon-512.png", "artifactName": "IPTV-PLAYER-Windows.${ext}" },
+  "win": { "target": [{ "target": "nsis", "arch": ["x64"] }], "icon": "public/icons/icon-512.png", "artifactName": "IPTV-PLAYER-Windows.${ext}" },
   "nsis": { "oneClick": true, "perMachine": false, "createDesktopShortcut": true, "shortcutName": "IPTV PLAYER" },
-  "mac": { "target": [{ "target": "dmg", "arch": ["universal"] }], "icon": "public/icons/icon-512.png", "category": "public.app-category.video", "artifactName": "IPTV-PLAYER-Mac.${ext}", "identity": null },
+  "mac": { "target": [{ "target": "dmg", "arch": ["x64", "arm64"] }], "icon": "public/icons/icon-512.png", "category": "public.app-category.video", "artifactName": "IPTV-PLAYER-Mac-${arch}.${ext}", "identity": null },
   "linux": { "target": [{ "target": "AppImage", "arch": ["x64"] }], "icon": "public/icons/icon-512.png", "category": "Video", "artifactName": "IPTV-PLAYER-Linux.${ext}" }
 }
