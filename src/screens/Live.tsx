@@ -8,6 +8,7 @@ import { epgCached, nowNext, programmesFor } from '../lib/epg'
 import { timeshiftUrl, xtArchive, xtShortEpg } from '../lib/xtream'
 import { proxied } from '../lib/net'
 import { playPro } from '../lib/pro'
+import { RecButton } from './Rec'
 import type { Item, Programme } from '../lib/types'
 
 export const useWide = () => {
@@ -211,6 +212,7 @@ function Preview({ ch, list }: { ch: Item; list: Item[] }) {
           <button className="btn" onClick={() => app.toggleFav('live', ch.id)}>
             <Icon n="heart" s={18} fill={fav} /> {fav ? 'Favorited' : 'Favorite'}
           </button>
+          {app.active && <RecButton url={streamFor(app.active, ch)} title={ch.name} />}
           {ch.archive && app.active?.type === 'xtream' && (
             <button className="btn" onClick={() => setCatchup(true)}>
               <Icon n="catchup" s={18} /> Catch-Up
