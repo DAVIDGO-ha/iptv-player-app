@@ -134,6 +134,88 @@ function create() {
   })
 }
 
+// ——— Recording: live TV / catch-up → Videos › IPTV PLAYER (ffmpeg copies the stream, no quality loss) ———
+const recDir = () => {
+  const d = path.join(app.getPath('videos'), 'IPTV PLAYER')
+  fs.mkdirSync(d, { recursive: true })
+  return d
+}
+const recs = new Map()
+ipcMain.handle('rec-start', (_e, url, name, live) => {
+  if (!/^https?:\/\//i.test(url || '')) throw new Error('bad url')
+  const id = String(Date.now())
+  const base = path.join(recDir(), String(name || 'Recording').replace(/[\\/:*?"<>|]+/g, ' ').trim().slice(0, 90) || 'Recording')
+  const r = { stop: false, proc: null, req: null, file: '' }
+  recs.set(id, r)
+  if (FF) {
+    // MP4 that stays playable even if the app closes during the recording
+    r.file = base + '.mp4'
+    const args = ['-hide_banner', '-loglevel', 'error', '-user_agent', UA, '-headers', 'X-Recorder: 1\r\n', '-reconnect', '1', '-reconnect_streamed', '1']
+    if (live) args.push('-reconnect_at_eof', '1')
+    args.push('-reconnect_delay_max', '10', '-i', url, '-map', '0:v:0?', '-map', '0:a?', '-c', 'copy', '-strict', '-2')
+    const run = (mkv) => {
+      const t0 = Date.now()
+      r.proc = spawn(FF, [...args, ...(mkv ? ['-f', 'matroska'] : ['-f', 'mp4', '-movflags', 'frag_keyframe+empty_moov+default_base_moof']), '-y', r.file], { stdio: ['pipe', 'ignore', 'ignore'], windowsHide: true })
+      r.proc.on('exit', (code) => {
+        // a sound / picture format MP4 can't hold → record as MKV instead (plays in VLC)
+        if (!mkv && !r.stop && code && Date.now() - t0 < 15000) {
+          try { fs.unlinkSync(r.file) } catch {}
+          r.file = base + '.mkv'
+          return run(true)
+        }
+        recs.delete(id)
+      })
+    }
+    run(false)
+  } else {
+    // no ffmpeg (Mac): save the stream as it comes (.ts — plays in VLC)
+    r.file = base + '.ts'
+    const out = fs.createWriteStream(r.file, { flags: 'a' })
+    const get = (u, hops = 0) => {
+      if (r.stop) return out.end()
+      const lib = u.startsWith('https') ? require('https') : http
+      r.req = lib.get(u, { headers: { 'User-Agent': UA, 'X-Recorder': '1' } }, (res) => {
+        if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location && hops < 5) return res.resume(), get(new URL(res.headers.location, u).toString(), hops + 1)
+        res.pipe(out, { end: false })
+        res.on('end', () => (live && !r.stop ? setTimeout(() => get(url), 1000) : (out.end(), recs.delete(id))))
+      })
+      r.req.on('error', () => (live && !r.stop ? setTimeout(() => get(url), 3000) : (out.end(), recs.delete(id))))
+    }
+    get(url)
+  }
+  return { id, file: r.file }
+})
+const stopOne = (id) => {
+  const r = recs.get(id)
+  if (!r) return
+  r.stop = true
+  try {
+    if (r.proc) {
+      r.proc.stdin.write('q') // let ffmpeg finish the file cleanly
+      setTimeout(() => r.proc && !r.proc.killed && r.proc.kill(), 4000)
+    }
+    if (r.req) r.req.destroy()
+  } catch {}
+  recs.delete(id)
+}
+ipcMain.handle('rec-stop', (_e, id) => stopOne(id))
+ipcMain.handle('rec-list', () =>
+  fs
+    .readdirSync(recDir())
+    .filter((n) => /\.(mp4|ts|mkv)$/i.test(n))
+    .map((n) => {
+      const f = path.join(recDir(), n)
+      const st = fs.statSync(f)
+      return { name: n.replace(/\.(mp4|ts|mkv)$/i, ''), file: f, size: st.size, date: st.mtimeMs }
+    })
+)
+ipcMain.handle('rec-delete', (_e, file) => {
+  const f = path.resolve(String(file || ''))
+  if (f.startsWith(recDir() + path.sep)) fs.unlinkSync(f)
+})
+ipcMain.handle('rec-open', () => shell.openPath(recDir()))
+app.on('before-quit', () => [...recs.keys()].forEach(stopOne))
+
 app.whenReady().then(create)
 app.on('activate', () => BrowserWindow.getAllWindows().length === 0 && create())
 app.on('window-all-closed', () => app.quit())
