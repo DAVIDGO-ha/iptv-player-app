@@ -6,4 +6,9 @@ contextBridge.exposeInMainWorld('desktop', {
   mac: () => ipcRenderer.invoke('mac'),
   txBase: () => ipcRenderer.invoke('tx-base'),
   probe: (url) => ipcRenderer.invoke('probe', url),
+  recStart: (url, name, live) => ipcRenderer.invoke('rec-start', url, name, live),
+  recStop: (id) => ipcRenderer.invoke('rec-stop', id),
+  recList: () => ipcRenderer.invoke('rec-list'),
+  recDelete: (file) => ipcRenderer.invoke('rec-delete', file),
+  recOpen: () => ipcRenderer.invoke('rec-open'),
 })
