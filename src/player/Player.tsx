@@ -8,6 +8,7 @@ import { episodeStream, streamFor } from '../lib/catalog'
 import { epgCached, nowNext, programmesFor } from '../lib/epg'
 import { xtShortEpg } from '../lib/xtream'
 import type { Item, PlayRequest, Programme } from '../lib/types'
+import { RecButton } from '../screens/Rec'
 
 const BACK_KEYS = ['Escape', 'Backspace', 'GoBack', 'BrowserBack']
 const BACK_CODES = [10009, 461, 8, 27]
@@ -587,6 +588,7 @@ function PlayerView({ req }: { req: PlayRequest }) {
                   <Icon n="speed" />
                 </button>
               )}
+              {(live || req.kind === 'catchup') && <RecButton url={req.url} title={req.title} live={live} className="icon-btn" iconOnly />}
               <button className={'icon-btn ' + (sleepAt ? 'accent' : '')} onClick={() => setMenu('sleep')} aria-label="Sleep timer">
                 <Icon n="timer" />
               </button>
