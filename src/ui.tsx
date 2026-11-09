@@ -55,6 +55,7 @@ const P: Record<string, string> = {
   server: 'M4 4h16v7H4zM4 13h16v7H4zM8 7.5h.01M8 16.5h.01',
   cast: 'M3 17a4 4 0 0 1 4 4M3 13a8 8 0 0 1 8 8M3 9V5h18v14h-6',
   tv: 'M3 5h18v12H3zM8 21h8',
+  rec: 'M12 16.5a4.5 4.5 0 1 0 0-9 4.5 4.5 0 0 0 0 9zM12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z',
 }
 export function Icon({ n, s = 22, fill = false, className = '' }: { n: string; s?: number; fill?: boolean; className?: string }) {
   return (
