@@ -30,7 +30,7 @@ const opts = {
   jsx: 'automatic',
   external: ['./bg/*'], // background images are copied from public/
   loader: { '.svg': 'dataurl', '.png': 'dataurl' },
-  define: { 'process.env.NODE_ENV': '"production"', 'process.env.SITE_URL': JSON.stringify(process.env.SITE_URL || '') },
+  define: { 'process.env.NODE_ENV': '"production"', 'process.env.SITE_URL': JSON.stringify(process.env.SITE_URL || ''), 'process.env.PLAY': JSON.stringify(process.env.PLAY || '') },
   nodePaths: process.env.NODE_PATH ? process.env.NODE_PATH.split(':') : [],
   logLevel: 'info',
 }
