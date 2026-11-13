@@ -91,6 +91,91 @@ jobs:
       - uses: actions/upload-artifact@v4
         with: { name: android, path: out/* }
 
+  play:
+    name: Google Play version (AAB)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: 21 }
+      - name: Install (Capacitor 8 → Android 16 / API 36)
+        run: |
+          cd $APP
+          npm install
+          npm install @capacitor/core@8 @capacitor/cli@8 @capacitor/android@8 @capacitor/app@8
+      - name: Build web (Google Play version)
+        env:
+          SITE_URL: ${{ vars.SITE_URL }}
+          PLAY: '1'
+        run: cd $APP && npm run build
+      - name: Android project
+        run: cd $APP && npx cap add android && npx cap sync android
+      - name: TV + Firestick + http streams + Google Play Billing
+        run: |
+          cd $APP
+          M=android/app/src/main/AndroidManifest.xml
+          sed -i 's|<application|<application android:usesCleartextTraffic="true" android:banner="@drawable/banner"|' $M
+          sed -i 's|<category android:name="android.intent.category.LAUNCHER" />|<category android:name="android.intent.category.LAUNCHER" />\n                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />|' $M
+          sed -i 's|<uses-permission android:name="android.permission.INTERNET" />|<uses-permission android:name="android.permission.INTERNET" />\n    <uses-feature android:name="android.hardware.touchscreen" android:required="false" />\n    <uses-feature android:name="android.software.leanback" android:required="false" />\n    <uses-feature android:name="android.hardware.faketouch" android:required="false" />|' $M
+          sed -i 's|android:name=".MainActivity"|android:name=".MainActivity" android:screenOrientation="sensorLandscape"|' $M
+          cp platforms/android/java/*.java platforms/android/play/*.java android/app/src/main/java/com/iptvplayer/app/
+          sed -i 's#</application>#    <activity android:name=".VlcActivity" android:theme="@style/AppTheme.NoActionBar" android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|keyboard|navigation|uiMode" android:screenOrientation="sensorLandscape" android:exported="false" />\n    </application>#' $M
+          V=$((1000 + ${{ github.run_number }}))
+          cat >> android/app/build.gradle <<GRADLE
+
+          dependencies {
+              implementation 'org.videolan.android:libvlc-all:3.6.5'
+              implementation 'com.android.billingclient:billing:8.0.0'
+          }
+          android {
+              defaultConfig {
+                  applicationId "com.iptvplayertv.app"
+                  versionCode $V
+                  versionName "1.2.$V"
+                  ndk { abiFilters 'armeabi-v7a', 'arm64-v8a' }
+              }
+              signingConfigs {
+                  play {
+                      if (System.getenv("KS_FILE")) {
+                          storeFile file(System.getenv("KS_FILE"))
+                          storePassword System.getenv("KS_PASS")
+                          keyAlias System.getenv("KS_ALIAS")
+                          keyPassword System.getenv("KS_PASS")
+                      }
+                  }
+              }
+              buildTypes {
+                  release {
+                      minifyEnabled false
+                      if (System.getenv("KS_FILE")) signingConfig signingConfigs.play
+                  }
+              }
+          }
+          GRADLE
+          tail -40 android/app/build.gradle
+          grep -n "targetSdk\|compileSdk\|minSdk" android/variables.gradle || true
+          mkdir -p android/app/src/main/res/drawable
+          cp platforms/android/banner.png android/app/src/main/res/drawable/banner.png
+          cat $M
+      - name: Build signed AAB
+        env:
+          KS_B64: ${{ secrets.PLAY_KEYSTORE }}
+          KS_PASS: ${{ secrets.PLAY_KEYSTORE_PASSWORD }}
+          KS_ALIAS: ${{ secrets.PLAY_KEY_ALIAS }}
+        run: |
+          cd $APP/android
+          if [ -n "$KS_B64" ]; then echo "$KS_B64" | base64 -d > $RUNNER_TEMP/upload.jks; export KS_FILE=$RUNNER_TEMP/upload.jks; else echo "::warning::No PLAY_KEYSTORE secret yet: the AAB is NOT signed (Play Console will refuse it)"; fi
+          chmod +x gradlew && ./gradlew bundleRelease --no-daemon
+          mkdir -p $GITHUB_WORKSPACE/out && cp app/build/outputs/bundle/release/app-release.aab $GITHUB_WORKSPACE/out/IPTV-PLAYER-GooglePlay.aab
+      - name: Check 16 KB pages (required by Google Play)
+        run: |
+          cd $RUNNER_TEMP && rm -rf aab && mkdir aab && cd aab && unzip -q $GITHUB_WORKSPACE/out/IPTV-PLAYER-GooglePlay.aab 'base/lib/arm64-v8a/*'
+          for f in base/lib/arm64-v8a/*.so; do echo "$(basename $f): $(readelf -lW $f | awk '/LOAD/{print $NF}' | sort -u | tr '\n' ' ')"; done
+      - uses: actions/upload-artifact@v4
+        with: { name: play, path: out/* }
+
   desktop:
     name: Desktop (${{ matrix.os }})
     strategy:
@@ -130,7 +215,7 @@ jobs:
 
   release:
     name: Publish to Releases › latest
-    needs: [web, android, desktop]
+    needs: [web, android, play, desktop]
     if: ${{ !cancelled() && needs.android.result == 'success' }}
     runs-on: ubuntu-latest
     steps:
