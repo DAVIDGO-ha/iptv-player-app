@@ -55,7 +55,12 @@ public class VlcPlayerPlugin extends Plugin {
         } catch (Exception ignored) {}
         Double start = call.getDouble("start", 0.0);
         i.putExtra("start", (long) ((start == null ? 0.0 : start) * 1000));
-        startActivityForResult(call, i, "onResult");
+        try {
+            startActivityForResult(call, i, "onResult");
+        } catch (Exception e) {
+            // e.g. a channel list too big for Android → the app falls back to the built-in player instead of closing
+            call.reject("Pro player could not open: " + e.getMessage());
+        }
     }
 
     // ——— Recording: saves a live channel to the app's Movies folder (keeps going while you watch something else) ———
