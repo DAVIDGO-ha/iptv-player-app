@@ -1,12 +1,13 @@
-import React, { useRef, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { useApp } from '../store'
 import { Icon, Logo, Modal, Segmented, Spinner } from '../ui'
 import { xtLogin } from '../lib/xtream'
 import { parseM3U } from '../lib/m3u'
 import { fetchText, fixProto } from '../lib/net'
 import { deviceId } from '../lib/settings'
-import { activateUrl, deviceKey, licenseInfo, PRICES, whatsappLink, xtreamOf } from '../lib/cloud'
-import { SITE_LABEL } from '../config'
+import { activateUrl, deviceKey, licenseInfo, lifetimePrice, xtreamOf } from '../lib/cloud'
+import { gpBuy, gpPrice, gpRestore, hasGooglePlay } from '../lib/billing'
+import { SITE_LABEL, SITE_URL } from '../config'
 import { Header } from './common'
 import type { Playlist } from '../lib/types'
 
@@ -262,13 +263,10 @@ export function Blocked() {
           <Icon n="lock" s={34} />
         </div>
         <h1 className="hero-title">Device blocked</h1>
-        <p className="muted lead">To unblock your device, contact us:</p>
+        <p className="muted lead">To unblock your device, contact us on our website:</p>
         <div className="blocked-contact">
           <div>
-            <Icon n="tv" s={20} /> <b>{SITE_LABEL.replace(/^www\./, 'www.')}</b>
-          </div>
-          <div>
-            <Icon n="info" s={20} /> WhatsApp <b>+44 7473 986835</b>
+            <Icon n="tv" s={20} /> <b>{SITE_LABEL}</b>
           </div>
         </div>
         <p className="small muted">Give us your MAC Address and Device Key:</p>
@@ -290,16 +288,42 @@ export function Blocked() {
   )
 }
 
-// Free trial (7 days) or subscription ended → the app is locked until activated from the admin dashboard
+// Free trial (7 days) ended → the app is locked until the lifetime licence is bought.
+// Google Play version: bought with Google Play. Other versions: activated from the admin dashboard.
 export function Locked() {
   const app = useApp()
   const lic = licenseInfo()
-  const wa = whatsappLink()
-  const qr = `https://api.qrserver.com/v1/create-qr-code/?size=360x360&margin=8&data=${encodeURIComponent(wa)}`
+  const gp = hasGooglePlay()
+  const [price, setPrice] = useState(gp ? '' : lifetimePrice())
+  const [busy, setBusy] = useState(false)
+  useEffect(() => {
+    if (gp) gpPrice().then((p) => setPrice(p || ''))
+  }, [])
+  const buy = async () => {
+    if (busy) return
+    setBusy(true)
+    try {
+      const r = await gpBuy()
+      if (r === 'owned') app.toast('Thank you! IPTV PLAYER is activated for life.')
+      else if (r === 'pending') app.toast('Payment pending — the app unlocks as soon as Google confirms it.')
+    } catch (e: any) {
+      app.toast(e?.message || 'Google Play payment is not available right now.')
+    } finally {
+      setBusy(false)
+    }
+  }
+  const restore = async () => {
+    setBusy(true)
+    const ok = await gpRestore()
+    setBusy(false)
+    app.toast(ok ? 'Purchase restored.' : 'No purchase found for this Google account.')
+  }
+  const site = SITE_URL
+  const qr = `https://api.qrserver.com/v1/create-qr-code/?size=360x360&margin=8&data=${encodeURIComponent(site)}`
   return (
     <div className="welcome blocked-screen locked-screen">
       <div className="welcome-glow" />
-      <div className="welcome-card locked-card">
+      <div className={'welcome-card locked-card' + (gp ? ' gp' : '')}>
         <div className="locked-main">
           <div className="locked-head">
             <div className="blocked-badge locked-badge">
@@ -307,55 +331,58 @@ export function Locked() {
             </div>
             <div>
               <h1 className="hero-title">{lic.wasPaid ? 'Your subscription has ended' : 'Your 7-day free trial has ended'}</h1>
-              <p className="muted">Activate IPTV PLAYER on this device to keep watching.</p>
+              <p className="muted">Get the lifetime licence to keep using IPTV PLAYER.</p>
             </div>
           </div>
           <div className="price-row">
-            <div className="price-card">
-              <span className="muted small">1 Year</span>
-              <b>{PRICES.year}</b>
-              <span className="muted small">per device / year</span>
-            </div>
             <div className="price-card best">
-              <span className="price-tag">BEST VALUE</span>
-              <span className="muted small">Lifetime</span>
-              <b>{PRICES.lifetime}</b>
-              <span className="muted small">pay once, forever</span>
+              <span className="price-tag">LIFETIME</span>
+              <span className="muted small">Lifetime licence</span>
+              <b>{price || '…'}</b>
+              <span className="muted small">pay once, use forever</span>
             </div>
           </div>
-          <div className="blocked-contact">
-            <div>
-              <Icon n="info" s={20} /> WhatsApp <b>+44 7473 986835</b>
+          {gp ? (
+            <div className="locked-actions">
+              <button className="btn primary xl" onClick={buy} data-autofocus>
+                {busy ? <Spinner size={18} /> : <Icon n="star" s={20} fill />} Buy lifetime{price ? ' — ' + price : ''}
+              </button>
+              <button className="btn glass-btn xl" onClick={restore}>
+                <Icon n="refresh" s={20} /> Restore purchase
+              </button>
             </div>
-            <div>
-              <Icon n="tv" s={20} /> <b>{SITE_LABEL}</b>
-            </div>
-          </div>
-          <div className="locked-actions">
-            <button className="btn glass-btn xl" onClick={() => app.syncCloud(true)} data-autofocus>
-              {app.syncing ? <Spinner size={18} /> : <Icon n="refresh" s={20} />} I have paid — check again
-            </button>
-            {!document.documentElement.classList.contains('tv') && (
-              <a className="btn primary xl" href={wa} target="_blank" rel="noreferrer">
-                <Icon n="info" s={20} /> WhatsApp us
-              </a>
-            )}
-          </div>
+          ) : (
+            <>
+              <div className="blocked-contact">
+                <div>
+                  <Icon n="tv" s={20} /> <b>{SITE_LABEL}</b>
+                </div>
+              </div>
+              <div className="locked-actions">
+                <button className="btn glass-btn xl" onClick={() => app.syncCloud(true)} data-autofocus>
+                  {app.syncing ? <Spinner size={18} /> : <Icon n="refresh" s={20} />} I have paid — check again
+                </button>
+              </div>
+            </>
+          )}
+          <p className="small muted">IPTV PLAYER is a media player only. It does not include any channels or content.</p>
         </div>
-        <div className="locked-side">
-          <img className="qr" src={qr} alt="" referrerPolicy="no-referrer" onError={(e) => e.currentTarget.setAttribute('data-err', '1')} />
-          <p className="small muted">Scan to send us your codes on WhatsApp</p>
-          <div className="dev-codes">
-            <div>
-              <span className="muted small">MAC Address</span>
-              <b>{deviceId()}</b>
-            </div>
-            <div>
-              <span className="muted small">Device Key</span>
-              <b>{deviceKey()}</b>
+        {!gp && (
+          <div className="locked-side">
+            <img className="qr" src={qr} alt="" referrerPolicy="no-referrer" onError={(e) => e.currentTarget.setAttribute('data-err', '1')} />
+            <p className="small muted">Scan to open our website</p>
+            <div className="dev-codes">
+              <div>
+                <span className="muted small">MAC Address</span>
+                <b>{deviceId()}</b>
+              </div>
+              <div>
+                <span className="muted small">Device Key</span>
+                <b>{deviceKey()}</b>
+              </div>
             </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   )
