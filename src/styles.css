@@ -3201,3 +3201,63 @@ html.tv .vod-cards .poster {
 .rec-on { color: #ff3b47 !important; border-color: #ff3b47 !important; }
 .rec-on .ic, .rec-dot .ic { color: #ff3b47; animation: recblink 1.2s ease-in-out infinite; }
 @keyframes recblink { 50% { opacity: 0.35; } }
+
+/* Phones: the video plays on top, the list stays visible underneath (Live TV, Sports, Movies, Series) */
+.live:not(.wide) .page-head {
+  order: 0;
+}
+.live:not(.wide) .live-preview {
+  order: 1;
+  flex: none;
+  overflow: visible;
+  padding: 0 10px 8px;
+}
+.live:not(.wide) .live-list {
+  order: 2;
+  flex: 1;
+  min-height: 0;
+}
+.live:not(.wide) .preview {
+  gap: 8px;
+}
+.live:not(.wide) .preview-video {
+  border-radius: 12px;
+}
+.live:not(.wide) .preview-info > :not(:first-child) {
+  display: none;
+}
+.live:not(.wide) .preview-info h2 {
+  font-size: 16px;
+}
+.vod-narrow {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+.vod-narrow > .page {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+.vod-narrow .narrow-pane {
+  position: relative;
+  flex: none;
+  max-height: 46vh;
+  overflow-y: auto;
+  padding: 10px 10px 12px;
+  border-bottom: 1px solid var(--line);
+}
+.pane-close {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  z-index: 5;
+  width: 32px;
+  height: 32px;
+  border-radius: 99px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+}
