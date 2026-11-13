@@ -49,7 +49,8 @@ export function Library({ kind }: { kind: 'movie' | 'series' }) {
   const wide = layout // phone, PC and TV: player on the right (full screen uses the Pro player on TVs)
   const [sel, setSel] = useState<Item | null>(null)
   // Big screens (laptop, TV, phone in landscape): play inside the dashboard, keep the list visible
-  const open = (i: Item) => (wide ? setSel(i) : app.nav.push(kind, { id: i.id, item: i }))
+  // Phones: the title plays on top of the list (tap the same title again → its full page)
+  const open = (i: Item) => (wide || sel?.id !== i.id ? setSel(i) : app.nav.push(kind, { id: i.id, item: i }))
   const prog = (i: Item) => {
     const h = app.history['mv:' + i.id]
     return h?.dur ? (h.pos || 0) / h.dur : undefined
@@ -90,7 +91,20 @@ export function Library({ kind }: { kind: 'movie' | 'series' }) {
       {g.pin}
     </div>
   )
-  if (!layout) return page
+  if (!layout)
+    return (
+      <div className="vod-narrow">
+        {sel && (
+          <section className="live-preview vod-preview narrow-pane">
+            <button className="pane-close" onClick={() => setSel(null)} aria-label="Close">
+              <Icon n="close" s={18} />
+            </button>
+            {kind === 'movie' ? <MovieDetail key={sel.id} id={sel.id} given={sel} pane /> : <SeriesDetail key={sel.id} id={sel.id} given={sel} pane />}
+          </section>
+        )}
+        {page}
+      </div>
+    )
   // Same design as Live TV: categories on the left, titles in the middle, the player / details on the right
   const catList = [
     ...(lazy ? [] : [{ id: 'all', name: kind === 'movie' ? 'All Movies' : 'All Series', count: items.length as number | undefined, locked: false }]),

@@ -41,7 +41,7 @@ export function Live({ sports = false }: { sports?: boolean }) {
   const [sort, setSort] = useState('num')
   const [sel, setSel] = useState<Item | null>(null)
   const wide = useWide()
-  const preview = wide // TV too: first OK = preview on the right, second OK = full screen (Pro player on TVs)
+  const preview = true // every device: first tap = plays next to the list (on top on phones), second tap = full screen (Pro player on TVs)
   useEffect(() => localStorage.setItem(catKey, g.cat), [g.cat])
   const title = sports ? 'Sports' : 'Live TV'
 
@@ -65,14 +65,14 @@ export function Live({ sports = false }: { sports?: boolean }) {
   const { shown, sentinel } = useProgressive(list, 80)
   // Big screens: the right side plays straight away (last channel watched in this list, else the first one)
   useEffect(() => {
-    if (!preview || !list.length || (sel && list.some((i) => i.id === sel.id))) return
+    if (!wide || !list.length || (sel && list.some((i) => i.id === sel.id))) return // phones: nothing plays until a channel is tapped
     const last = Object.values(app.history)
       .filter((h) => h.kind === 'live')
       .sort((a, b) => b.at - a.at)
       .map((h) => list.find((i) => i.id === h.id))
       .find(Boolean)
     setSel(last || list[0])
-  }, [preview, list])
+  }, [wide, list])
 
   const catList = [
     { id: 'all', name: sports ? 'All Sports' : 'All Channels', count: items.length, locked: false },
@@ -143,7 +143,7 @@ export function Live({ sports = false }: { sports?: boolean }) {
           {!list.length && <Empty icon="search" title={g.cat === 'fav' ? 'No favorite channels yet' : 'No channels'} text={g.cat === 'fav' ? 'Right-click or long-press a channel to add it.' : undefined} />}
         </div>
       </section>
-      {preview && (
+      {(wide || sel) && (
         <section className="live-preview">
           {sel ? <Preview key={sel.id} ch={sel} list={list} /> : <Empty icon="tv" title="Select a channel" text="Choose once to preview, again to watch full screen." />}
         </section>
