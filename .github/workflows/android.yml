@@ -84,6 +84,8 @@ jobs:
           tail -15 android/app/build.gradle
           mkdir -p android/app/src/main/res/drawable
           cp platforms/android/banner.png android/app/src/main/res/drawable/banner.png
+          # app icon (rounded) for the phone / TV home screen
+          rm -rf android/app/src/main/res/mipmap-anydpi-v26 && cp -r platforms/android/res/. android/app/src/main/res/
           cat $M
       - name: Build APK
         run: cd $APP/android && chmod +x gradlew && ./gradlew assembleDebug --no-daemon
@@ -158,6 +160,8 @@ jobs:
           grep -n "targetSdk\|compileSdk\|minSdk" android/variables.gradle || true
           mkdir -p android/app/src/main/res/drawable
           cp platforms/android/banner.png android/app/src/main/res/drawable/banner.png
+          # app icon (rounded) for the phone / TV home screen
+          rm -rf android/app/src/main/res/mipmap-anydpi-v26 && cp -r platforms/android/res/. android/app/src/main/res/
           cat $M
       - name: Build signed AAB
         env:
