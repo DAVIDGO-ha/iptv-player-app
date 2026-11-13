@@ -68,9 +68,20 @@ export async function playPro(o: {
 }): Promise<{ pos: number; dur: number; index: number } | null> {
   if (hasNativePro()) {
     const C = W.Capacitor
-    const args = { url: o.url, title: o.title || '', start: o.start || 0, live: !!o.live, ua: UA, urls: o.urls || [], titles: o.titles || [], index: o.index || 0 }
+    // Only send the channels around the current one: Android saves this call while the player is open, and a list of
+    // thousands of channels is too big to save → Android closes the app. 100 before + 100 after is plenty for CH+/CH–.
+    let urls = o.urls || []
+    let titles = o.titles || []
+    let index = o.index || 0
+    const from = Math.max(0, index - 100)
+    if (urls.length > 201) {
+      urls = urls.slice(from, from + 201)
+      titles = titles.slice(from, from + 201)
+      index -= from
+    }
+    const args = { url: o.url, title: o.title || '', start: o.start || 0, live: !!o.live, ua: UA, urls, titles, index }
     const r = C.nativePromise ? await C.nativePromise('VlcPlayer', 'play', args) : await C.Plugins?.VlcPlayer?.play(args)
-    return r ? { pos: Number(r.pos) || 0, dur: Number(r.dur) || 0, index: Number(r.index) || 0 } : null
+    return r ? { pos: Number(r.pos) || 0, dur: Number(r.dur) || 0, index: (Number(r.index) || 0) + (urls.length < (o.urls || []).length ? from : 0) } : null
   }
   if (hasDesktopPro()) {
     await W.desktop.openVlc(o.url, o.title || '')
