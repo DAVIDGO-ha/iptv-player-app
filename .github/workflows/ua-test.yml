@@ -1,0 +1,15 @@
+name: UA test
+on:
+  push:
+    paths: ['.github/workflows/ua-test.yml']
+  workflow_dispatch:
+jobs:
+  t:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          for H in line.premium-playlist-4k.com; do
+          for ua in "IPTVSmartersPlayer" "VLC/3.0.21 LibVLC/3.0.21" "LibVLC/3.0.21" "IPTVPlayer/1.0" "IPTV PLAYER/1.0" "okhttp/4.12.0" "ExoPlayerLib/2.19.1" "Lavf/60.16.100" "Dalvik/2.1.0 (Linux; U; Android 14; Pixel 8 Build/AP2A)" "Kodi/21.0" "TiviMate/5.1.6" "IPTV Smarters Pro" "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/130.0 Mobile Safari/537.36" "Mozilla/5.0 (QtEmbedded; U; Linux; C) AppleWebKit/533.3 (KHTML, like Gecko) MAG200 stbapp ver: 2 rev: 250 Safari/533.3" "XCIPTV" "IBOPlayer" "Wget/1.21" "curl/8.5.0" ""; do
+            printf '%-60s ' "[$ua]"
+            curl -s -o o.txt -w '%{http_code} ' -m 20 -A "$ua" "http://$H/player_api.php?username=test1234&password=test1234" ; head -c 80 o.txt; echo
+          done; done
