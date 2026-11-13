@@ -2,6 +2,8 @@
 import { SITE_URL } from '../config'
 import { deviceId, read, write } from './settings'
 import type { Playlist } from './types'
+import { PLAY } from './flavor'
+import { gpOwned } from './billing'
 
 export function deviceKey(): string {
   let k = read<string>('ip.devkey', '')
@@ -45,7 +47,7 @@ async function call(path: string, init?: RequestInit) {
 let registered = false
 export async function registerDevice() {
   if (registered) return
-  await call('/api/device/register', { method: 'POST', body: JSON.stringify({ id: deviceId(), key: deviceKey(), platform: platform(), version: '1.1.0' }) })
+  await call('/api/device/register', { method: 'POST', body: JSON.stringify({ id: deviceId(), key: deviceKey(), platform: platform() + (PLAY ? ' (Google Play)' : ''), version: PLAY ? (gpOwned() ? '1.2.0 Play · Lifetime paid' : '1.2.0 Play') : '1.1.0' }) })
   registered = true
 }
 
@@ -62,18 +64,28 @@ export async function fetchCloudPlaylists(): Promise<CloudPlaylist[]> {
 }
 export const isBlocked = () => !!read<boolean>('ip.blocked', false)
 
-// ——— Licence: 7-day free trial per device, then $5 / year or $15 lifetime (activated from the admin dashboard) ———
+// ——— Licence: 7-day free trial per device, then one lifetime licence: £15 (UK) · €15 (Europe) · $15 (everywhere else).
+// Google Play version: bought with Google Play. Other versions: activated from the admin dashboard. ———
 export type License = { trialEnd?: string; subEnd?: string | null; lifetime?: boolean }
-export const PRICES = { year: '$5', lifetime: '$15' }
-export const WHATSAPP = '447473986835'
-export const WHATSAPP_LABEL = '+44 7473 986835'
+const UK_TZ = /^Europe\/(London|Belfast|Isle_of_Man|Jersey|Guernsey)$/
+const EU_TZ = /^(Europe\/|Atlantic\/(Canary|Madeira|Azores|Faroe|Reykjavik)$)/
+/** Lifetime price for this device's country (by time zone). */
+export function lifetimePrice(): string {
+  let tz = ''
+  try {
+    tz = Intl.DateTimeFormat().resolvedOptions().timeZone || ''
+  } catch {}
+  if (UK_TZ.test(tz)) return '£15'
+  if (EU_TZ.test(tz) && !/^Europe\/(Moscow|Istanbul|Kiev|Kyiv|Minsk|Samara|Volgograd|Kaliningrad|Saratov|Ulyanovsk|Astrakhan|Kirov|Simferopol)$/.test(tz)) return '€15'
+  return '$15'
+}
 const DAY = 86400000
 export function licenseInfo(): { state: 'trial' | 'active' | 'lifetime' | 'expired'; days: number; until?: number; wasPaid: boolean } {
   const l = read<License | null>('ip.license', null)
   let first = read<number>('ip.firstRun', 0)
   if (!first) write('ip.firstRun', (first = Date.now()))
   const now = Date.now()
-  if (l?.lifetime) return { state: 'lifetime', days: 0, wasPaid: true }
+  if (l?.lifetime || gpOwned()) return { state: 'lifetime', days: 0, wasPaid: true }
   const paid = l?.subEnd ? Date.parse(l.subEnd + 'T23:59:59') : 0
   if (paid > now) return { state: 'active', days: Math.ceil((paid - now) / DAY), until: paid, wasPaid: true }
   const trialEnd = l?.trialEnd ? Date.parse(l.trialEnd) : first + 7 * DAY
@@ -81,8 +93,6 @@ export function licenseInfo(): { state: 'trial' | 'active' | 'lifetime' | 'expir
   return { state: 'expired', days: 0, wasPaid: !!paid }
 }
 export const isExpired = () => licenseInfo().state === 'expired'
-export const whatsappLink = () =>
-  `https://wa.me/${WHATSAPP}?text=${encodeURIComponent(`Hi, I want to activate IPTV PLAYER.\nMAC Address: ${deviceId()}\nDevice Key: ${deviceKey()}`)}`
 
 // An M3U link like http://host/get.php?username=…&password=… is an Xtream line: load it with the Xtream API
 // (a few seconds) instead of downloading the whole M3U file (can be 300+ MB → stuck on "Loading playlist" on a Firestick).
