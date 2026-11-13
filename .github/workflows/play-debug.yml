@@ -1,0 +1,76 @@
+name: Test Google Play build (Pro player + live streams)
+on:
+  workflow_dispatch:
+  push:
+    paths: ['.github/workflows/play-debug.yml']
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Live stream check with different app names (secret TREX_TEST = "host username password")
+        env:
+          T: ${{ secrets.TREX_TEST }}
+        run: |
+          if [ -z "$T" ]; then echo "No TREX_TEST secret – skipped"; exit 0; fi
+          read H U P <<< "$T"
+          echo "::add-mask::$U"; echo "::add-mask::$P"
+          A="http://$H/player_api.php?username=$U&password=$P"
+          for ua in "IPTVPlayer/1.0" "IPTVSmartersPlayer" "okhttp/4.12.0" "VLC/3.0.20 LibVLC/3.0.20" "Mozilla/5.0 (Linux; Android 14; SM-X200) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/130.0 Safari/537.36" "Dalvik/2.1.0 (Linux; U; Android 14; SM-X200)"; do
+            c=$(curl -s -m 20 -A "$ua" -o /tmp/api.json -w "%{http_code}" "$A")
+            echo "API  [$ua] -> $c auth=$(jq -r '.user_info.auth // "?"' /tmp/api.json 2>/dev/null)"
+          done
+          curl -s -m 60 -A "IPTVSmartersPlayer" "$A&action=get_live_streams" -o /tmp/live.json
+          IDS=$(jq -r '.[0:3][].stream_id' /tmp/live.json 2>/dev/null)
+          echo "first live ids: $IDS"
+          for id in $IDS; do
+            for ua in "IPTVPlayer/1.0" "IPTVSmartersPlayer" "okhttp/4.12.0" "VLC/3.0.20 LibVLC/3.0.20" "Mozilla/5.0 (Linux; Android 14; SM-X200) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/130.0 Safari/537.36" "Dalvik/2.1.0 (Linux; U; Android 14; SM-X200)"; do
+              for f in ts m3u8; do
+                r=$(curl -s -L -m 8 -A "$ua" -o /tmp/s.bin -w "%{http_code} redirects=%{num_redirects}" "http://$H/live/$U/$P/$id.$f")
+                echo "LIVE $id.$f [$ua] -> $r bytes=$(stat -c %s /tmp/s.bin 2>/dev/null)"
+              done
+            done
+          done
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Get the Google Play app bundle and make an installable APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download latest -R ${{ github.repository }} -p 'IPTV-PLAYER-GooglePlay.aab' -D .
+          curl -sL -o bundletool.jar https://github.com/google/bundletool/releases/download/1.17.2/bundletool-all-1.17.2.jar
+          keytool -genkeypair -keystore dbg.jks -storepass android -keypass android -alias dbg -keyalg RSA -validity 1000 -dname "CN=dbg"
+          java -jar bundletool.jar build-apks --bundle=IPTV-PLAYER-GooglePlay.aab --output=app.apks --mode=universal --ks=dbg.jks --ks-pass=pass:android --ks-key-alias=dbg --key-pass=pass:android
+          unzip -o app.apks universal.apk
+          ls -la universal.apk
+          unzip -l universal.apk | grep -E "lib/|\.so" | head -20
+
+      - name: Run on an Android 14 emulator and open the Pro player
+        uses: reactivecircus/android-emulator-runner@v2
+        env:
+          T: ${{ secrets.TREX_TEST }}
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          disable-animations: true
+          script: |
+            adb install -r universal.apk
+            adb root || true
+            sleep 3
+            adb logcat -c
+            adb shell monkey -p com.iptvplayertv.app -c android.intent.category.LAUNCHER 1 || true
+            sleep 15
+            adb shell am start -n com.iptvplayertv.app/com.iptvplayer.app.VlcActivity --es url "https://devstreaming-cdn.apple.com/videos/streaming/examples/bipbop_4x3/bipbop_4x3_variant.m3u8" --es title Test --ez live true --es ua IPTVPlayer/1.0 || true
+            sleep 20
+            adb shell pidof com.iptvplayertv.app || echo "APP PROCESS GONE"
+            adb logcat -d -b crash > crash.txt || true
+            adb logcat -d | grep -iE "AndroidRuntime|FATAL|libvlc|VLC|DEBUG  |linker|UnsatisfiedLink|dlopen" | tail -150 > vlc.txt || true
+            echo "===== CRASH BUFFER ====="; cat crash.txt | head -120
+            echo "===== VLC / RUNTIME LOG ====="; cat vlc.txt
