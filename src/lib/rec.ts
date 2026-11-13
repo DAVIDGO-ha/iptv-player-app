@@ -3,6 +3,7 @@
 // Recordings can be played back from More › Recordings.
 import { useEffect, useState } from 'react'
 import { routed } from './net'
+import { UA } from './flavor'
 
 const W = window as any
 const D = () => W.desktop
@@ -28,7 +29,7 @@ const clean = (s: string) => (s || 'Recording').replace(/[\\/:*?"<>|#%&{}$!'@+`=
 export async function startRec(url: string, name: string, live = true): Promise<ActiveRec> {
   const fname = `${clean(name)} ${stamp()}`
   const u = routed(url) // same anti-block route as the player
-  const r = D() ? await D().recStart(u, fname, live) : await call('recStart', { url: u, name: fname, live })
+  const r = D() ? await D().recStart(u, fname, live) : await call('recStart', { url: u, name: fname, live, ua: UA })
   if (!r?.id) throw new Error('Could not start the recording')
   const rec = { id: String(r.id), name, url, file: r.file || '', started: Date.now() }
   active = [...active, rec]
