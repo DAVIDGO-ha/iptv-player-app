@@ -4,7 +4,8 @@ import { episodeStream, loadCatalog, streamFor } from './lib/catalog'
 import { playPro, proFor } from './lib/pro'
 import { idbDel, idbGet, idbSet } from './lib/idb'
 import { xtAllItems, xtCategoryItems } from './lib/xtream'
-import { fetchCloudPlaylists, isBlocked, isExpired, licenseInfo, PRICES, toPlaylist } from './lib/cloud'
+import { fetchCloudPlaylists, isBlocked, isExpired, licenseInfo, lifetimePrice, toPlaylist } from './lib/cloud'
+import { gpRestore, hasGooglePlay } from './lib/billing'
 import type { Catalog, Category, HistoryEntry, Item, Kind, PlayRequest, Playlist } from './lib/types'
 
 export type Route = { name: string; params?: any }
@@ -95,6 +96,7 @@ function useStore() {
   const [expired, setExpired] = useState(isExpired()) // free trial / subscription ended → locked
   useEffect(() => {
     const t = setInterval(() => setExpired(isExpired()), 60000)
+    gpRestore() // Google Play version: unlock if this Google account already bought the lifetime licence
     return () => clearInterval(t)
   }, [])
   useEffect(() => {
@@ -118,7 +120,7 @@ function useStore() {
         const day = new Date().toDateString()
         if (lic.state === 'trial' && read('ip.trialToast', '') !== day) {
           write('ip.trialToast', day)
-          toast(`Free trial: ${lic.days} day${lic.days === 1 ? '' : 's'} left — then ${PRICES.year}/year or ${PRICES.lifetime} lifetime`)
+          toast(`Free trial: ${lic.days} day${lic.days === 1 ? '' : 's'} left — then ${hasGooglePlay() ? 'buy the lifetime licence on Google Play' : lifetimePrice() + ' lifetime'}`)
         }
         const cur = plRef.current
         const local = cur.filter((p) => !p.cloud)
