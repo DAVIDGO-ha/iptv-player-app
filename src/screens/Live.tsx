@@ -88,7 +88,7 @@ export function Live({ sports = false }: { sports?: boolean }) {
 
   if (!items.length && !cats.length)
     return sports ? (
-      <Empty icon="live" title="No sports categories found" text="Your playlist has no categories with sports names (Sports, Football, F1, beIN, DAZN…)." />
+      <Empty icon="live" title="No sports categories found" text="Your playlist has no sports categories (Sports, Football, F1…)." />
     ) : (
       <Empty icon="live" title="No live channels" text="This playlist doesn’t include live TV." />
     )
