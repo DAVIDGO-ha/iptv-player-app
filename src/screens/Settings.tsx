@@ -3,7 +3,8 @@ import { useApp } from '../store'
 import { Icon, Modal, PinPad, Segmented, Toggle } from '../ui'
 import { Header } from './common'
 import { deviceId, DEFAULTS } from '../lib/settings'
-import { deviceKey, licenseInfo, PRICES, resetDeviceKey } from '../lib/cloud'
+import { deviceKey, licenseInfo, lifetimePrice, resetDeviceKey } from '../lib/cloud'
+import { gpRestore, hasGooglePlay } from '../lib/billing'
 import { SITE_LABEL } from '../config'
 import { idbDel } from '../lib/idb'
 import { loadEpg } from '../lib/epg'
@@ -93,11 +94,14 @@ export function Settings() {
             const l = licenseInfo()
             if (l.state === 'lifetime') return 'Lifetime — activated'
             if (l.state === 'active') return 'Active until ' + new Date(l.until!).toLocaleDateString()
-            if (l.state === 'trial') return `Free trial — ${l.days} day${l.days === 1 ? '' : 's'} left · then ${PRICES.year}/year or ${PRICES.lifetime} lifetime`
+            if (l.state === 'trial') return `Free trial — ${l.days} day${l.days === 1 ? '' : 's'} left · then ${hasGooglePlay() ? 'lifetime licence on Google Play' : lifetimePrice() + ' lifetime'}`
             return 'Expired'
           })()}
         />
         <Row icon="lock" label="Device Key" sub={deviceKey()} />
+        {hasGooglePlay() && (
+          <Row icon="refresh" label="Restore Google Play purchase" onClick={async () => app.toast((await gpRestore()) ? 'Purchase restored.' : 'No purchase found for this Google account.')} />
+        )}
         <Row icon="refresh" label={app.syncing ? 'Syncing…' : 'Sync playlists from website'} sub={app.lastSync ? 'Last sync ' + new Date(app.lastSync).toLocaleTimeString() : undefined} onClick={() => app.syncCloud(true)} />
         <Row
           icon="edit"
