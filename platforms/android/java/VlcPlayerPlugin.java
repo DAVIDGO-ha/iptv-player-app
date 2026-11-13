@@ -83,6 +83,7 @@ public class VlcPlayerPlugin extends Plugin {
             return;
         }
         final boolean live = call.getBoolean("live", true);
+        final String ua = call.getString("ua", "IPTVSmartersPlayer");
         String name = call.getString("name", "Recording").replaceAll("[\\\\/:*?\"<>|]+", " ").trim();
         if (name.isEmpty()) name = "Recording";
         if (name.length() > 90) name = name.substring(0, 90);
@@ -102,7 +103,7 @@ public class VlcPlayerPlugin extends Plugin {
                         for (int hop = 0; hop < 5; hop++) { // follow redirects (also http → https)
                             c = (java.net.HttpURLConnection) new java.net.URL(u).openConnection();
                             c.setInstanceFollowRedirects(false);
-                            c.setRequestProperty("User-Agent", "IPTVSmartersPlayer");
+                            c.setRequestProperty("User-Agent", ua);
                             c.setRequestProperty("X-Recorder", "1");
                             c.setConnectTimeout(15000);
                             c.setReadTimeout(30000);
