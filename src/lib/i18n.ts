@@ -1,8 +1,9 @@
-// App language: English, Français, Deutsch, Español.
+// App language: English, Français, Deutsch, Español, Nederlands, Português, Italiano, Svenska, العربية.
 // The whole interface is translated on screen (text, buttons, placeholders, tooltips) — channel, movie and
 // series names from the playlist stay as they are.
 import { getSettings, onSettings } from './settings'
 import { country } from './bgflag'
+import { D2, P2 } from './i18n-more'
 
 export const LANGS: [string, string][] = [
   ['auto', 'Auto'],
@@ -10,9 +11,16 @@ export const LANGS: [string, string][] = [
   ['fr', 'Français'],
   ['de', 'Deutsch'],
   ['es', 'Español'],
+  ['nl', 'Nederlands'],
+  ['pt', 'Português'],
+  ['it', 'Italiano'],
+  ['sv', 'Svenska'],
+  ['ar', 'العربية'],
 ]
-type L = 'fr' | 'de' | 'es'
-const IDX: Record<L, number> = { fr: 0, de: 1, es: 2 }
+type L = 'fr' | 'de' | 'es' | 'nl' | 'pt' | 'it' | 'sv' | 'ar'
+const IDX: Record<L, number> = { fr: 0, de: 1, es: 2, nl: 0, pt: 1, it: 2, sv: 3, ar: 4 }
+const MORE = new Set<L>(['nl', 'pt', 'it', 'sv', 'ar'])
+const ALL = new Set<string>(['fr', 'de', 'es', 'nl', 'pt', 'it', 'sv', 'ar'])
 
 // English → [French, German, Spanish]
 const D: Record<string, [string, string, string]> = {
@@ -381,10 +389,16 @@ const D: Record<string, [string, string, string]> = {
   'Next episode': ['Épisode suivant', 'Nächste Episode', 'Siguiente episodio'],
   'Up next': ['À suivre', 'Als Nächstes', 'A continuación'],
   'Next up': ['À suivre', 'Als Nächstes', 'A continuación'],
+  'Scan the code or open': ['Scannez le code ou ouvrez', 'Scanne den Code oder öffne', 'Escanea el código o abre'],
+  'Waiting for your playlist…': ['En attente de votre playlist…', 'Warte auf deine Playlist…', 'Esperando tu lista…'],
+  "Add playlist on this device": ["Ajouter une playlist sur cet appareil", "Playlist auf diesem Gerät hinzufügen", "Añadir lista en este dispositivo"],
+  "Tip: paste a full “get.php?username=…” link in the M3U URL tab — it will be converted automatically.": ["Astuce : collez un lien complet « get.php?username=… » dans l’onglet M3U — il sera converti automatiquement.", "Tipp: Füge einen vollständigen „get.php?username=…“-Link im M3U-Tab ein — er wird automatisch umgewandelt.", "Consejo: pega un enlace completo «get.php?username=…» en la pestaña M3U — se convertirá automáticamente."],
+  "External": ["Externe", "Extern", "Externo"],
 }
 
 // Sentences with numbers / names
 const P: [RegExp, (m: RegExpMatchArray) => [string, string, string]][] = [
+  [/^“(.*)” starts now on (.+)$/, (m) => [`« ${m[1]} » commence maintenant sur ${m[2]}`, `„${m[1]}“ beginnt jetzt auf ${m[2]}`, `«${m[1]}» empieza ahora en ${m[2]}`]],
   [/^([\d.,\s]+) channels$/, (m) => [`${m[1]} chaînes`, `${m[1]} Sender`, `${m[1]} canales`]],
   [/^([\d.,\s]+) titles$/, (m) => [`${m[1]} titres`, `${m[1]} Titel`, `${m[1]} títulos`]],
   [/^([\d.,\s]+) titles in this category$/, (m) => [`${m[1]} titres dans cette catégorie`, `${m[1]} Titel in dieser Kategorie`, `${m[1]} títulos en esta categoría`]],
@@ -418,8 +432,9 @@ const P: [RegExp, (m: RegExpMatchArray) => [string, string, string]][] = [
 
 let lang: '' | L = ''
 // Auto = the language of the user's country (France, Belgium, Morocco → French · Germany, Austria, Switzerland →
-// German · Spain, Latin America → Spanish · everywhere else English, unless the device itself is fr / de / es)
-const BY_COUNTRY: Record<string, L> = { FR: 'fr', BE: 'fr', MA: 'fr', DZ: 'fr', TN: 'fr', LU: 'fr', DE: 'de', AT: 'de', CH: 'de', ES: 'es' }
+// German · Spain, Latin America → Spanish · Netherlands → Dutch · Portugal → Portuguese · Italy → Italian · Sweden →
+// Swedish · everywhere else English, unless the device itself uses one of these languages)
+const BY_COUNTRY: Record<string, L> = { FR: 'fr', BE: 'fr', MA: 'fr', DZ: 'fr', TN: 'fr', LU: 'fr', DE: 'de', AT: 'de', CH: 'de', ES: 'es', NL: 'nl', PT: 'pt', IT: 'it', SE: 'sv' }
 const LATAM = /^America\/(Mexico_City|Cancun|Merida|Monterrey|Chihuahua|Tijuana|Bogota|Lima|Santiago|Caracas|Argentina|Buenos_Aires|Montevideo|Asuncion|La_Paz|Guayaquil|Panama|Costa_Rica|El_Salvador|Guatemala|Tegucigalpa|Managua|Santo_Domingo|Havana|Puerto_Rico)/
 const ENGLISH = new Set(['GB', 'IE', 'US', 'CA', 'AU'])
 function autoLang(): '' | L {
@@ -434,18 +449,27 @@ function autoLang(): '' | L {
   if (BY_COUNTRY[c]) return BY_COUNTRY[c]
   const dev = (navigator.languages?.[0] || navigator.language || 'en').slice(0, 2).toLowerCase()
   if (ENGLISH.has(c) && /^(Europe\/(London|Dublin)|America|Australia|Pacific)/.test(tz)) return ''
-  return dev === 'fr' || dev === 'de' || dev === 'es' ? dev : ''
+  return ALL.has(dev) ? (dev as L) : ''
 }
 const resolve = (): '' | L => {
   const s = (getSettings() as any).uiLang || 'auto'
   if (s === 'auto') return autoLang()
-  return s === 'fr' || s === 'de' || s === 'es' ? s : ''
+  return ALL.has(s) ? (s as L) : ''
 }
 
 /** Translate one English string (also usable directly in code). */
 export function t(en: string): string {
   if (!lang || !en) return en
   const i = IDX[lang]
+  if (MORE.has(lang)) {
+    const d2 = D2[en]
+    if (d2) return d2[i]
+    for (const [re, f] of P2) {
+      const m = en.match(re)
+      if (m) return f(m)[i]
+    }
+    return en
+  }
   const d = D[en]
   if (d) return d[i]
   for (const [re, f] of P) {
