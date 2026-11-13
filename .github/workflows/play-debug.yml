@@ -7,31 +7,10 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 45
     steps:
-      - name: Live stream check with different app names (secret TREX_TEST = "host username password")
-        env:
-          T: ${{ secrets.TREX_TEST }}
-        run: |
-          if [ -z "$T" ]; then echo "No TREX_TEST secret – skipped"; exit 0; fi
-          read H U P <<< "$T"
-          echo "::add-mask::$U"; echo "::add-mask::$P"
-          A="http://$H/player_api.php?username=$U&password=$P"
-          for ua in "IPTVPlayer/1.0" "IPTVSmartersPlayer" "okhttp/4.12.0" "VLC/3.0.20 LibVLC/3.0.20" "Mozilla/5.0 (Linux; Android 14; SM-X200) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/130.0 Safari/537.36" "Dalvik/2.1.0 (Linux; U; Android 14; SM-X200)"; do
-            c=$(curl -s -m 20 -A "$ua" -o /tmp/api.json -w "%{http_code}" "$A")
-            echo "API  [$ua] -> $c auth=$(jq -r '.user_info.auth // "?"' /tmp/api.json 2>/dev/null)"
-          done
-          curl -s -m 60 -A "IPTVSmartersPlayer" "$A&action=get_live_streams" -o /tmp/live.json
-          IDS=$(jq -r '.[0:3][].stream_id' /tmp/live.json 2>/dev/null)
-          echo "first live ids: $IDS"
-          for id in $IDS; do
-            for ua in "IPTVPlayer/1.0" "IPTVSmartersPlayer" "okhttp/4.12.0" "VLC/3.0.20 LibVLC/3.0.20" "Mozilla/5.0 (Linux; Android 14; SM-X200) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/130.0 Safari/537.36" "Dalvik/2.1.0 (Linux; U; Android 14; SM-X200)"; do
-              for f in ts m3u8; do
-                r=$(curl -s -L -m 8 -A "$ua" -o /tmp/s.bin -w "%{http_code} redirects=%{num_redirects}" "http://$H/live/$U/$P/$id.$f")
-                echo "LIVE $id.$f [$ua] -> $r bytes=$(stat -c %s /tmp/s.bin 2>/dev/null)"
-              done
-            done
-          done
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
 
       - name: Enable KVM
         run: |
@@ -39,7 +18,7 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
-      - name: Get the Google Play app bundle and make an installable APK
+      - name: Get the Google Play app bundle → installable APK with WebView debugging on (test only)
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -48,29 +27,75 @@ jobs:
           keytool -genkeypair -keystore dbg.jks -storepass android -keypass android -alias dbg -keyalg RSA -validity 1000 -dname "CN=dbg"
           java -jar bundletool.jar build-apks --bundle=IPTV-PLAYER-GooglePlay.aab --output=app.apks --mode=universal --ks=dbg.jks --ks-pass=pass:android --ks-key-alias=dbg --key-pass=pass:android
           unzip -o app.apks universal.apk
-          ls -la universal.apk
-          unzip -l universal.apk | grep -E "lib/|\.so" | head -20
+          python3 - <<'PY'
+          import zipfile, json
+          src = zipfile.ZipFile('universal.apk')
+          out = zipfile.ZipFile('mod.apk', 'w')
+          for it in src.infolist():
+              if it.filename.startswith('META-INF/'): continue
+              d = src.read(it.filename)
+              if it.filename == 'assets/capacitor.config.json':
+                  c = json.loads(d); c['android'] = {**c.get('android', {}), 'webContentsDebuggingEnabled': True}; d = json.dumps(c).encode()
+              out.writestr(it, d)
+          out.close()
+          PY
+          BT=$(ls -d $ANDROID_HOME/build-tools/* | sort -V | tail -1)
+          $BT/zipalign -f -p 4 mod.apk aligned.apk
+          $BT/apksigner sign --ks dbg.jks --ks-pass pass:android --key-pass pass:android --out test.apk aligned.apk
+          ls -la test.apk
 
-      - name: Run on an Android 14 emulator and open the Pro player
+      - name: Write the test script
+        run: |
+          cat > cdp.mjs <<'JS'
+          const list = await (await fetch('http://127.0.0.1:9222/json')).json()
+          const page = list.find((p) => p.type === 'page') || list[0]
+          const ws = new WebSocket(page.webSocketDebuggerUrl)
+          await new Promise((r) => (ws.onopen = r))
+          let id = 0
+          const ev = (expr) => new Promise((res) => {
+            const my = ++id
+            ws.addEventListener('message', function f(m) { const d = JSON.parse(m.data); if (d.id === my) { ws.removeEventListener('message', f); res(d.result) } })
+            ws.send(JSON.stringify({ id: my, method: 'Runtime.evaluate', params: { expression: expr, awaitPromise: false, returnByValue: true } }))
+          })
+          const what = process.argv[2]
+          const url = 'https://devstreaming-cdn.apple.com/videos/streaming/examples/bipbop_4x3/bipbop_4x3_variant.m3u8'
+          let args
+          if (what === 'movie') args = { url, title: 'Movie test', start: 0, live: false, ua: 'IPTVPlayer/1.0', urls: [], titles: [], index: 0 }
+          if (what === 'small') args = { url, title: 'Live small list', start: 0, live: true, ua: 'IPTVPlayer/1.0', urls: Array(150).fill(url), titles: Array(150).fill('Channel'), index: 3 }
+          if (what === 'big') args = { url, title: 'Live big list', start: 0, live: true, ua: 'IPTVPlayer/1.0', urls: Array(6000).fill(url + '?ch=1234567890'), titles: Array(6000).fill('UK: SKY SPORTS MAIN EVENT FHD'), index: 3 }
+          console.log(JSON.stringify(await ev(`typeof Capacitor + ' ' + (Capacitor.isNativePlatform && Capacitor.isNativePlatform())`)))
+          console.log(JSON.stringify(await ev(`Capacitor.nativePromise('VlcPlayer','play',${JSON.stringify(args)}).then(r=>console.log('RESULT',JSON.stringify(r))).catch(e=>console.log('ERR',e.message)); 'sent'`)))
+          ws.close()
+          JS
+          cat > run.sh <<'SH'
+          set -x
+          adb install -r test.apk
+          adb shell monkey -p com.iptvplayertv.app -c android.intent.category.LAUNCHER 1
+          sleep 20
+          for t in movie small big; do
+            adb shell am force-stop com.iptvplayertv.app
+            adb shell monkey -p com.iptvplayertv.app -c android.intent.category.LAUNCHER 1
+            sleep 15
+            P=$(adb shell pidof com.iptvplayertv.app | tr -d '\r')
+            adb forward --remove-all
+            adb forward tcp:9222 localabstract:webview_devtools_remote_$P
+            adb logcat -c
+            node cdp.mjs $t
+            sleep 12
+            adb shell input keyevent KEYCODE_HOME
+            sleep 4
+            echo "===== $t : process now: $(adb shell pidof com.iptvplayertv.app || echo GONE)"
+            adb logcat -d -b crash | head -60
+            adb logcat -d | grep -iE "FATAL|AndroidRuntime|TransactionTooLarge|Exception|VlcActivity|chromium.*RESULT|chromium.*ERR" | grep -v "monkey" | tail -40
+          done
+          SH
+          chmod +x run.sh
+
+      - name: Run on an Android 14 emulator
         uses: reactivecircus/android-emulator-runner@v2
-        env:
-          T: ${{ secrets.TREX_TEST }}
         with:
           api-level: 34
           target: google_apis
           arch: x86_64
           disable-animations: true
-          script: |
-            adb install -r universal.apk
-            adb root || true
-            sleep 3
-            adb logcat -c
-            adb shell monkey -p com.iptvplayertv.app -c android.intent.category.LAUNCHER 1 || true
-            sleep 15
-            adb shell am start -n com.iptvplayertv.app/com.iptvplayer.app.VlcActivity --es url "https://devstreaming-cdn.apple.com/videos/streaming/examples/bipbop_4x3/bipbop_4x3_variant.m3u8" --es title Test --ez live true --es ua IPTVPlayer/1.0 || true
-            sleep 20
-            adb shell pidof com.iptvplayertv.app || echo "APP PROCESS GONE"
-            adb logcat -d -b crash > crash.txt || true
-            adb logcat -d | grep -iE "AndroidRuntime|FATAL|libvlc|VLC|DEBUG  |linker|UnsatisfiedLink|dlopen" | tail -150 > vlc.txt || true
-            echo "===== CRASH BUFFER ====="; cat crash.txt | head -120
-            echo "===== VLC / RUNTIME LOG ====="; cat vlc.txt
+          script: ./run.sh
