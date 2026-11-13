@@ -1,5 +1,6 @@
 import { getSettings, read, write } from './settings'
 import { SITE_URL } from '../config'
+import { PLAY, UA } from './flavor'
 
 // ——— Anti-block route (no VPN): when an internet provider blocks an IPTV server by name (DNS block — common in
 // the UK and Germany), the app looks up the server's real address with Cloudflare / Google and connects to that
@@ -17,6 +18,7 @@ const markOk = (h: string) => {
 }
 /** Use the saved working address for a blocked server (also for every channel / movie / episode link). */
 export function routed(url: string): string {
+  if (PLAY) return url // Google Play version: no anti-block route
   const h = hostOf(url)
   const r = h && routes[h]
   return r ? url.replace(/^(https?:\/\/)[^/?#:]+/i, '$1' + r.ip) : url
@@ -24,6 +26,7 @@ export function routed(url: string): string {
 // Ask OUR server (www.iptv-player-tv.com) for the IPTV server's real address — it looks it up outside the
 // customer's internet provider. Nothing else: no VPN, no tunnel.
 async function dohResolve(host: string): Promise<string[]> {
+  if (PLAY) return [] // Google Play version: never looks up blocked servers
   const ctrl = new AbortController()
   const t = setTimeout(() => ctrl.abort(), 10000)
   try {
@@ -63,7 +66,7 @@ export function proxied(url: string, isStream = false): string {
 
 const isNative = () => !!(window as any).Capacitor?.isNativePlatform?.()
 // Some IPTV panels block browser user-agents; in the app we look like a normal IPTV player.
-const PLAYER_UA = 'IPTVSmartersPlayer'
+const PLAYER_UA = UA
 
 async function getOnce(url: string, timeout: number, hostHeader?: string): Promise<Response> {
   const ctrl = new AbortController()
