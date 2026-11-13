@@ -1,5 +1,7 @@
 // "Pro player": a native player that decodes every sound format (Dolby AC3 / E-AC3, DTS, MP2…)
 // Android app → built-in libVLC player. Laptop app → VLC (if installed). Browsers can't play these sounds.
+import { UA } from './flavor'
+
 const W = window as any
 
 export const hasNativePro = () => !!W.Capacitor?.isNativePlatform?.()
@@ -66,7 +68,7 @@ export async function playPro(o: {
 }): Promise<{ pos: number; dur: number; index: number } | null> {
   if (hasNativePro()) {
     const C = W.Capacitor
-    const args = { url: o.url, title: o.title || '', start: o.start || 0, live: !!o.live, ua: 'IPTVSmartersPlayer', urls: o.urls || [], titles: o.titles || [], index: o.index || 0 }
+    const args = { url: o.url, title: o.title || '', start: o.start || 0, live: !!o.live, ua: UA, urls: o.urls || [], titles: o.titles || [], index: o.index || 0 }
     const r = C.nativePromise ? await C.nativePromise('VlcPlayer', 'play', args) : await C.Plugins?.VlcPlayer?.play(args)
     return r ? { pos: Number(r.pos) || 0, dur: Number(r.dur) || 0, index: Number(r.index) || 0 } : null
   }
