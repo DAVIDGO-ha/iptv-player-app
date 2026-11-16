@@ -1,0 +1,27 @@
+name: TREX check (host vs IP)
+on:
+  workflow_dispatch:
+  push:
+    paths: ['.github/workflows/trex-check.yml']
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          T: ${{ secrets.TREX_TEST }}
+        run: |
+          read H U P <<< "$T"
+          echo "::add-mask::$U"; echo "::add-mask::$P"
+          IP=$(getent hosts "$H" | awk '{print $1}' | head -1); echo "IP=$IP"
+          for target in "$H" "$IP"; do
+            c=$(curl -s -m 20 -A IPTVSmartersPlayer -o /tmp/a.json -w "%{http_code}" "http://$target/player_api.php?username=$U&password=$P")
+            echo "API via $target -> $c auth=$(jq -r '.user_info.auth // "?"' /tmp/a.json 2>/dev/null) max=$(jq -r '.user_info.max_connections // "?"' /tmp/a.json 2>/dev/null) active=$(jq -r '.user_info.active_cons // "?"' /tmp/a.json 2>/dev/null) status=$(jq -r '.user_info.status // "?"' /tmp/a.json 2>/dev/null) exp=$(jq -r '.user_info.exp_date // "?"' /tmp/a.json 2>/dev/null)"
+          done
+          c=$(curl -s -m 20 -A IPTVSmartersPlayer -H "Host: $H" -o /dev/null -w "%{http_code}" "http://$IP/player_api.php?username=$U&password=$P"); echo "API via IP + Host header -> $c"
+          curl -s -m 60 -A IPTVSmartersPlayer "http://$H/player_api.php?username=$U&password=$P&action=get_live_streams" -o /tmp/l.json
+          ID=$(jq -r '.[0].stream_id' /tmp/l.json); echo "live id $ID"
+          for target in "$H" "$IP"; do
+            r=$(curl -s -m 8 -A IPTVSmartersPlayer -o /tmp/s.bin -w "%{http_code} redirects=%{num_redirects} final=%{url_effective}" "http://$target/live/$U/$P/$ID.ts" | sed -E 's#https?://([^/]+)/.*#\1#')
+            echo "LIVE via $target -> $r bytes=$(stat -c %s /tmp/s.bin)"
+            curl -s -m 8 -I -A IPTVSmartersPlayer "http://$target/live/$U/$P/$ID.ts" | grep -iE "^(HTTP|location|server)" | sed -E "s#$U|$P#***#g; s#(location: https?://[^/]+).*#\1/...#I"
+          done
