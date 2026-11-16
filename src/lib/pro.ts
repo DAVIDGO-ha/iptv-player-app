@@ -4,6 +4,17 @@ import { UA } from './flavor'
 
 const W = window as any
 
+// While the Pro player is open, every small / built-in player stops its stream (one connection per line:
+// a second stream makes the provider cut both, and two players at once can run old devices out of memory).
+let proOpen = false
+const proSubs = new Set<(v: boolean) => void>()
+const setProOpen = (v: boolean) => {
+  proOpen = v
+  proSubs.forEach((f) => f(v))
+}
+export const isProOpen = () => proOpen
+export const onProOpen = (f: (v: boolean) => void) => (proSubs.add(f), () => void proSubs.delete(f))
+
 export const hasNativePro = () => !!W.Capacitor?.isNativePlatform?.()
 export const hasDesktopPro = () => !!W.desktop?.openVlc
 export const canPro = () => hasNativePro() || hasDesktopPro()
@@ -80,7 +91,13 @@ export async function playPro(o: {
       index -= from
     }
     const args = { url: o.url, title: o.title || '', start: o.start || 0, live: !!o.live, ua: UA, urls, titles, index }
-    const r = C.nativePromise ? await C.nativePromise('VlcPlayer', 'play', args) : await C.Plugins?.VlcPlayer?.play(args)
+    setProOpen(true)
+    let r: any
+    try {
+      r = C.nativePromise ? await C.nativePromise('VlcPlayer', 'play', args) : await C.Plugins?.VlcPlayer?.play(args)
+    } finally {
+      setProOpen(false)
+    }
     return r ? { pos: Number(r.pos) || 0, dur: Number(r.dur) || 0, index: (Number(r.index) || 0) + (urls.length < (o.urls || []).length ? from : 0) } : null
   }
   if (hasDesktopPro()) {

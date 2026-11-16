@@ -127,7 +127,7 @@ export async function attachEngine(
     }
     const hls = new Hls({
       enableWorker: true,
-      lowLatencyMode: opts.live,
+      lowLatencyMode: false, // IPTV HLS is normal HLS: low-latency mode only adds buffering
       maxBufferLength: bufferSec(),
       backBufferLength: opts.live ? 30 : 90,
       manifestLoadingMaxRetry: 4,
@@ -201,6 +201,8 @@ export async function attachEngine(
       }
     )
     p.on(mpegts.Events.ERROR, (t: string, d: string) => opts.onFatal?.(`${t}: ${d}`))
+    // Live: the server closed the stream (common every few minutes on IPTV) → reconnect instead of freezing
+    if (opts.live) p.on(mpegts.Events.LOADING_COMPLETE, () => opts.onFatal?.('Stream ended'))
     p.attachMediaElement(v)
     p.load()
     return {
