@@ -1,9 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
 import { attachEngine, detectType, type Engine } from '../lib/engines'
 import { attachTranscode, canTranscode, needsTranscode, probe } from '../lib/transcode'
+import { isProOpen, onProOpen } from '../lib/pro'
 
 // Attach the right engine to a <video>, with automatic fallback between formats.
-export function useEngine(videoRef: React.RefObject<HTMLVideoElement>, url: string | undefined, live: boolean) {
+export function useEngine(videoRef: React.RefObject<HTMLVideoElement>, wantUrl: string | undefined, live: boolean) {
+  // Pro player open → this player lets go of the stream (the line has one connection), and resumes after
+  const [proOn, setProOn] = useState(isProOpen())
+  useEffect(() => onProOpen(setProOn), [])
+  const url = proOn ? undefined : wantUrl
   const [error, setError] = useState('')
   const [engine, setEngine] = useState<Engine | null>(null)
   const [tracksTick, setTick] = useState(0)
@@ -51,6 +56,27 @@ export function useEngine(videoRef: React.RefObject<HTMLVideoElement>, url: stri
     if (first !== 'native') order.push({ u: url, t: 'native' })
 
     let step = 0
+    // Once a format has played, a drop (server hiccup, Wi-Fi blip, stream restart) reconnects the SAME format
+    // instead of trying other formats — IPTV servers often close a live stream every few minutes.
+    let worked = false
+    let reconnects = 0
+    let lastGood = 0
+    let reconnecting = false
+    const attach = async (o: { u: string; t: 'hls' | 'ts' | 'native' }, resumeAt = 0) => {
+      const e = await attachEngine(v, o.u, {
+        live,
+        type: o.t,
+        onFatal: (m) => !dead && failed(m),
+        onTracks: () => setTick((x) => x + 1),
+      })
+      if (dead) return e.destroy()
+      engRef.current = e
+      setEngine(e)
+      if (resumeAt > 1) v.addEventListener('loadedmetadata', () => (v.currentTime = resumeAt), { once: true })
+      v.play().catch(() => {
+        /* autoplay may need a tap */
+      })
+    }
     const tryNext = async (why?: string) => {
       engRef.current?.destroy()
       engRef.current = null
@@ -61,26 +87,56 @@ export function useEngine(videoRef: React.RefObject<HTMLVideoElement>, url: stri
         return
       }
       try {
-        const e = await attachEngine(v, o.u, {
-          live,
-          type: o.t,
-          onFatal: (m) => !dead && tryNext(m),
-          onTracks: () => setTick((x) => x + 1),
-        })
-        if (dead) return e.destroy()
-        engRef.current = e
-        setEngine(e)
-        v.play().catch(() => {
-          /* autoplay may need a tap */
-        })
+        await attach(o)
       } catch (err: any) {
         tryNext(err?.message)
       }
     }
+    const reconnect = async () => {
+      if (dead || reconnecting) return
+      if (Date.now() - lastGood > 60000) reconnects = 0 // played well for a minute → fresh retries
+      if (++reconnects > 6) return setError('The stream stopped. Check your internet, then try again.')
+      reconnecting = true
+      const resumeAt = live ? 0 : v.currentTime
+      engRef.current?.destroy()
+      engRef.current = null
+      await new Promise((r) => setTimeout(r, Math.min(1000 * reconnects, 5000)))
+      reconnecting = false
+      if (dead) return
+      try {
+        await attach(order[Math.max(0, step - 1)], resumeAt)
+      } catch {
+        reconnect()
+      }
+    }
+    const failed = (why?: string) => (worked ? reconnect() : tryNext(why))
+    const onPlaying = () => {
+      worked = true
+      lastGood = Date.now()
+    }
+    v.addEventListener('playing', onPlaying)
+    // Frozen picture (no error, time not moving) for 12 s while it should be playing → reconnect
+    let lastT = -1
+    let frozenFor = 0
+    const watchdog = setInterval(() => {
+      if (dead || v.paused || !worked || reconnecting || !engRef.current) return (frozenFor = 0)
+      if (v.currentTime !== lastT) {
+        lastT = v.currentTime
+        frozenFor = 0
+        lastGood = Date.now()
+        return
+      }
+      if ((frozenFor += 3) >= 12) {
+        frozenFor = 0
+        reconnect()
+      }
+    }, 3000)
+    const onEnded = () => live && worked && reconnect() // a live channel never really ends
+    v.addEventListener('ended', onEnded)
     const onErr = () => {
       const code = v.error?.code
       if (!v.getAttribute('src') && !engRef.current) return
-      tryNext(code === 4 ? 'This format is not supported on this device. Try the Pro player button.' : 'Playback error.')
+      failed(code === 4 ? 'This format is not supported on this device. Try the Pro player button.' : 'Playback error.')
     }
     v.addEventListener('error', onErr)
     const onMeta = () => setTick((x) => x + 1)
@@ -109,6 +165,9 @@ export function useEngine(videoRef: React.RefObject<HTMLVideoElement>, url: stri
     return () => {
       dead = true
       clearInterval(audioCheck)
+      clearInterval(watchdog)
+      v.removeEventListener('playing', onPlaying)
+      v.removeEventListener('ended', onEnded)
       v.removeEventListener('error', onErr)
       v.removeEventListener('loadedmetadata', onMeta)
       engRef.current?.destroy()
