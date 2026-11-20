@@ -9,7 +9,7 @@ import { SITE_LABEL } from '../config'
 import { idbDel } from '../lib/idb'
 import { loadEpg } from '../lib/epg'
 import type { Kind } from '../lib/types'
-import { canPro } from '../lib/pro'
+import { canPro, hasNativePro } from '../lib/pro'
 import { COUNTRIES } from '../lib/bgflag'
 import { LANGS } from '../lib/i18n'
 
@@ -132,6 +132,11 @@ export function Settings() {
         {canPro() && (
           <Row icon="tv" label="Player engine" sub="Pro = VLC engine: every picture & sound format (best for Firestick / old TVs)">
             <Segmented value={s.engine || 'auto'} onChange={(v) => set({ engine: v })} options={[{ v: 'auto', l: 'Auto' }, { v: 'pro', l: 'Pro' }, { v: 'builtin', l: 'Built-in' }]} />
+          </Row>
+        )}
+        {hasNativePro() && (s.engine || 'auto') !== 'builtin' && (
+          <Row icon="play" label="Video engine" sub="VLC plays every picture & sound format. If a channel freezes or will not play, try ExoPlayer.">
+            <Segmented value={s.nativeEngine || 'vlc'} onChange={(v) => set({ nativeEngine: v })} options={[{ v: 'vlc', l: 'VLC' }, { v: 'exo', l: 'ExoPlayer' }]} />
           </Row>
         )}
         <Row icon="live" label="Live stream format" sub="MPEG-TS is lower latency; HLS works on more devices">

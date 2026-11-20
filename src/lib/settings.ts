@@ -18,7 +18,8 @@ export type Settings = {
   pin: string
   hideAdult: boolean
   language: string
-  engine: 'auto' | 'pro' | 'builtin' // auto = Pro player on Firestick / Android TV
+  engine: 'auto' | 'pro' | 'builtin' // auto / pro = native player in the Android app · builtin = web engine
+  nativeEngine: 'vlc' | 'exo' // Android app: which native engine plays (VLC = every format · ExoPlayer = Android's own)
   region: string // background flag: 'auto' or a country code (GB, DE, FR…)
   uiLang: string // app language: auto / en / fr / de / es
 }
@@ -43,6 +44,7 @@ export const DEFAULTS: Settings = {
   hideAdult: true,
   language: 'en',
   engine: 'auto',
+  nativeEngine: 'vlc',
   region: 'auto',
   uiLang: 'auto',
 }

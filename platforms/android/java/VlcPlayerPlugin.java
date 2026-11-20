@@ -10,6 +10,7 @@ import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.ActivityCallback;
 import com.getcapacitor.annotation.CapacitorPlugin;
 
+@androidx.annotation.OptIn(markerClass = androidx.media3.common.util.UnstableApi.class)
 @CapacitorPlugin(name = "VlcPlayer")
 public class VlcPlayerPlugin extends Plugin {
 
@@ -33,7 +34,9 @@ public class VlcPlayerPlugin extends Plugin {
             return;
         }
         embedRelease(); // the small player lets go of the stream first: the line has one connection
-        Intent i = new Intent(getContext(), VlcActivity.class);
+        // Settings › Video engine: VLC (default: every picture & sound format) or ExoPlayer
+        boolean exo = "exo".equals(call.getString("engine", "vlc"));
+        Intent i = new Intent(getContext(), exo ? ExoActivity.class : VlcActivity.class);
         i.putExtra("url", url);
         i.putExtra("title", call.getString("title", ""));
         i.putExtra("ua", call.getString("ua", "IPTVSmartersPlayer"));
@@ -71,6 +74,10 @@ public class VlcPlayerPlugin extends Plugin {
     private org.videolan.libvlc.MediaPlayer eMp;
     private org.videolan.libvlc.util.VLCVideoLayout eLayout;
     private android.widget.FrameLayout eBox;
+    // ExoPlayer engine for the small player (Settings › Video engine › ExoPlayer)
+    private androidx.media3.exoplayer.ExoPlayer xMp;
+    private androidx.media3.ui.PlayerView xView;
+    private boolean eExo = false;
     private String eUrl = null;
     private String eUa = "IPTVSmartersPlayer";
     private boolean eLive = true;
@@ -103,6 +110,12 @@ public class VlcPlayerPlugin extends Plugin {
             eBox.setVisibility(android.view.View.INVISIBLE);
             getActivity().addContentView(eBox, new android.widget.FrameLayout.LayoutParams(16, 9));
         }
+        if (eExo) {
+            embedEnsureExo();
+            return;
+        }
+        if (xView != null) xView.setVisibility(android.view.View.GONE);
+        eLayout.setVisibility(android.view.View.VISIBLE);
         if (eMp == null) {
             java.util.ArrayList<String> opts = new java.util.ArrayList<>();
             opts.add("--network-caching=2000");
@@ -130,6 +143,72 @@ public class VlcPlayerPlugin extends Plugin {
         }
     }
 
+    private void embedEnsureExo() {
+        eLayout.setVisibility(android.view.View.GONE);
+        if (xView == null) {
+            xView = new androidx.media3.ui.PlayerView(getContext());
+            xView.setUseController(false);
+            xView.setFocusable(false);
+            xView.setClickable(false);
+            eBox.addView(xView, new android.widget.FrameLayout.LayoutParams(-1, -1));
+        }
+        xView.setVisibility(android.view.View.VISIBLE);
+        if (xMp == null) {
+            androidx.media3.datasource.DefaultHttpDataSource.Factory http = new androidx.media3.datasource.DefaultHttpDataSource.Factory()
+                .setUserAgent(eUa)
+                .setAllowCrossProtocolRedirects(true)
+                .setConnectTimeoutMs(15000)
+                .setReadTimeoutMs(20000);
+            xMp = new androidx.media3.exoplayer.ExoPlayer.Builder(getContext(), new androidx.media3.exoplayer.DefaultRenderersFactory(getContext()).setEnableDecoderFallback(true))
+                .setMediaSourceFactory(new androidx.media3.exoplayer.source.DefaultMediaSourceFactory(getContext()).setDataSourceFactory(http))
+                .build();
+            xMp.addListener(new androidx.media3.common.Player.Listener() {
+                @Override
+                public void onPlaybackStateChanged(int st) {
+                    if (st == androidx.media3.common.Player.STATE_READY) {
+                        eState = "playing";
+                        eEverPlayed = true;
+                        eGoodAt = System.currentTimeMillis();
+                    }
+                    if (st == androidx.media3.common.Player.STATE_ENDED) embedRetry();
+                }
+
+                @Override
+                public void onRenderedFirstFrame() {
+                    eGotVideo = true;
+                }
+
+                @Override
+                public void onPlayerError(androidx.media3.common.PlaybackException e) {
+                    embedRetry();
+                }
+            });
+            xView.setPlayer(xMp);
+        }
+    }
+
+    // (Re)start the current link on the chosen engine
+    private void embedStart() {
+        if (eExo) {
+            androidx.media3.common.MediaItem.Builder mb = new androidx.media3.common.MediaItem.Builder().setUri(android.net.Uri.parse(eUrl));
+            String path = eUrl.split("\\?")[0].toLowerCase();
+            if (path.endsWith(".m3u8") || path.contains("/hls/")) mb.setMimeType(androidx.media3.common.MimeTypes.APPLICATION_M3U8);
+            xMp.stop();
+            xMp.setMediaItem(mb.build());
+            xMp.prepare();
+            xMp.setPlayWhenReady(true);
+        } else {
+            eMp.stop();
+            embedLoad();
+            eMp.play();
+        }
+    }
+
+    private void embedStopPlayers() {
+        try { if (eMp != null) eMp.stop(); } catch (Throwable ignored) {}
+        try { if (xMp != null) xMp.stop(); } catch (Throwable ignored) {}
+    }
+
     // Live stream closed by the server / network blip → same link again after a short wait (never two connections at once)
     private void embedRetry() {
         if (eUrl == null) return;
@@ -143,12 +222,10 @@ public class VlcPlayerPlugin extends Plugin {
         final int gen = eGen;
         final int re = ++eRe; // "ended" and "error" can both arrive for one drop → only one reconnect
         eH.postDelayed(() -> {
-            if (gen != eGen || re != eRe || eUrl == null || eMp == null) return;
+            if (gen != eGen || re != eRe || eUrl == null) return;
             try {
-                eMp.stop();
-                embedLoad();
-                eMp.play();
-            } catch (Exception ex) {
+                embedStart();
+            } catch (Throwable ex) {
                 eState = "error";
             }
         }, Math.min(3000L * eRetries, 10000L));
@@ -198,11 +275,13 @@ public class VlcPlayerPlugin extends Plugin {
         }
         ui(() -> {
             try {
+                eUa = call.getString("ua", "IPTVSmartersPlayer");
+                eExo = "exo".equals(call.getString("engine", "vlc"));
+                embedStopPlayers(); // the other engine (if the setting was changed) lets go of the stream first
                 embedEnsure();
                 eGen++;
                 eH.removeCallbacksAndMessages(null);
                 eUrl = url;
-                eUa = call.getString("ua", "IPTVSmartersPlayer");
                 eLive = call.getBoolean("live", true);
                 eHw = true;
                 eGotVideo = false;
@@ -211,13 +290,11 @@ public class VlcPlayerPlugin extends Plugin {
                 eGoodAt = 0;
                 eState = "loading";
                 embedPlace(call);
-                eMp.stop();
-                embedLoad();
-                eMp.play();
+                embedStart();
                 // Sound but no picture after a while (old devices: hardware decoder can't show this video) → software decoding
                 final int gen = eGen;
                 eH.postDelayed(() -> {
-                    if (gen != eGen || eMp == null || eGotVideo || !eHw || eMp.getVideoTracksCount() <= 0) return;
+                    if (gen != eGen || eExo || eMp == null || eGotVideo || !eHw || eMp.getVideoTracksCount() <= 0) return;
                     eHw = false;
                     eMp.stop();
                     embedLoad();
@@ -262,7 +339,7 @@ public class VlcPlayerPlugin extends Plugin {
         eUrl = null;
         eWasPlaying = false;
         eState = "idle";
-        try { if (eMp != null) eMp.stop(); } catch (Throwable ignored) {}
+        embedStopPlayers();
         if (eBox != null) eBox.setVisibility(android.view.View.INVISIBLE);
     }
 
@@ -274,24 +351,23 @@ public class VlcPlayerPlugin extends Plugin {
     protected void handleOnPause() {
         super.handleOnPause();
         // App in the background (or the full-screen player on top): free the line's connection
-        if (eMp != null && eUrl != null) {
+        if (eUrl != null) {
             eWasPlaying = true;
             eGen++;
             eH.removeCallbacksAndMessages(null);
-            try { eMp.stop(); } catch (Throwable ignored) {}
+            embedStopPlayers();
         }
     }
 
     @Override
     protected void handleOnResume() {
         super.handleOnResume();
-        if (eWasPlaying && eMp != null && eUrl != null) {
+        if (eWasPlaying && eUrl != null) {
             eWasPlaying = false;
             eState = "loading";
             eRetries = 0;
             try {
-                embedLoad();
-                eMp.play();
+                embedStart();
             } catch (Throwable ignored) {}
         }
     }
@@ -302,7 +378,9 @@ public class VlcPlayerPlugin extends Plugin {
             eH.removeCallbacksAndMessages(null);
             if (eMp != null) { eMp.stop(); eMp.detachViews(); eMp.release(); }
             if (eLib != null) eLib.release();
+            if (xMp != null) xMp.release();
         } catch (Throwable ignored) {}
+        xMp = null;
         eMp = null;
         eLib = null;
         super.handleOnDestroy();

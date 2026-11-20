@@ -12,7 +12,9 @@ import android.view.KeyEvent;
 import android.view.View;
 import android.view.WindowManager;
 import android.widget.FrameLayout;
+import android.widget.LinearLayout;
 import android.widget.ProgressBar;
+import android.widget.SeekBar;
 import android.widget.TextView;
 import java.util.ArrayList;
 import org.videolan.libvlc.LibVLC;
@@ -43,6 +45,12 @@ public class VlcActivity extends Activity {
     private long goodAt = 0;
     private final Handler h = new Handler(Looper.getMainLooper());
     private final Runnable hide = () -> { if (info != null) info.setVisibility(View.GONE); };
+    // Bottom bar: time + seek bar (movies / episodes) and the Sound / Subtitles buttons — touch and remote (MENU key)
+    private LinearLayout bar;
+    private SeekBar seekBar;
+    private TextView tPos, tDur;
+    private boolean dragging = false;
+    private final Runnable hideBar = () -> { if (bar != null && !dragging) bar.setVisibility(View.GONE); };
 
     @Override
     protected void onCreate(Bundle b) {
@@ -61,12 +69,59 @@ public class VlcActivity extends Activity {
         info.setPadding(36, 24, 36, 24);
         info.setBackgroundColor(0x99000000);
         root.addView(info, new FrameLayout.LayoutParams(-1, -2, Gravity.TOP));
-        root.setOnClickListener(v -> togglePause());
-        setContentView(root);
+        // first tap shows the bar, a tap while it is shown pauses / plays
+        root.setOnClickListener(v -> { if (bar.getVisibility() == View.VISIBLE) togglePause(); showBar(); });
 
         Intent i = getIntent();
         start = i.getLongExtra("start", 0);
         live = i.getBooleanExtra("live", false);
+
+        bar = new LinearLayout(this);
+        bar.setOrientation(LinearLayout.HORIZONTAL);
+        bar.setGravity(Gravity.CENTER_VERTICAL);
+        bar.setBackgroundColor(0x99000000);
+        bar.setPadding(28, 14, 28, 14);
+        tPos = label("0:00");
+        tDur = label("0:00");
+        seekBar = new SeekBar(this);
+        seekBar.setMax(1000);
+        seekBar.setFocusable(false); // the remote seeks with Left / Right
+        seekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override
+            public void onProgressChanged(SeekBar sb, int p, boolean fromUser) {
+                if (fromUser && mp != null) tPos.setText(fmt(mp.getLength() * p / 1000));
+            }
+
+            @Override
+            public void onStartTrackingTouch(SeekBar sb) {
+                dragging = true;
+                h.removeCallbacks(hideBar);
+            }
+
+            @Override
+            public void onStopTrackingTouch(SeekBar sb) {
+                dragging = false;
+                if (mp != null && mp.getLength() > 0) mp.setTime(mp.getLength() * sb.getProgress() / 1000);
+                showBar();
+            }
+        });
+        if (live) {
+            View gap = new View(this);
+            bar.addView(gap, new LinearLayout.LayoutParams(0, 1, 1f));
+        } else {
+            bar.addView(tPos);
+            bar.addView(seekBar, new LinearLayout.LayoutParams(0, -2, 1f));
+            bar.addView(tDur);
+        }
+        TextView bAudio = label("Sound");
+        bAudio.setOnClickListener(v -> pickTrack(true));
+        TextView bSubs = label("Subtitles");
+        bSubs.setOnClickListener(v -> pickTrack(false));
+        bar.addView(bAudio);
+        bar.addView(bSubs);
+        bar.setVisibility(View.GONE);
+        root.addView(bar, new FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM));
+        setContentView(root);
         show(i.getStringExtra("title"));
 
         ArrayList<String> opts = new ArrayList<>();
@@ -85,6 +140,9 @@ public class VlcActivity extends Activity {
                     break;
                 case MediaPlayer.Event.Vout:
                     if (e.getVoutCount() > 0) gotVideo = true;
+                    break;
+                case MediaPlayer.Event.TimeChanged:
+                    if (!live && !dragging && bar.getVisibility() == View.VISIBLE) updateBar();
                     break;
                 case MediaPlayer.Event.Buffering:
                     spin.setVisibility(e.getBuffering() < 100f ? View.VISIBLE : View.GONE);
@@ -177,6 +235,58 @@ public class VlcActivity extends Activity {
         h.postDelayed(hide, 4000);
     }
 
+    private TextView label(String t) {
+        TextView v = new TextView(this);
+        v.setText(t);
+        v.setTextColor(Color.WHITE);
+        v.setTextSize(15);
+        v.setPadding(22, 16, 22, 16);
+        return v;
+    }
+
+    private void updateBar() {
+        if (mp == null || live) return;
+        long len = mp.getLength(), t = mp.getTime();
+        tPos.setText(fmt(Math.max(0, t)));
+        tDur.setText(fmt(Math.max(0, len)));
+        if (len > 0) seekBar.setProgress((int) (t * 1000 / len));
+    }
+
+    private void showBar() {
+        updateBar();
+        bar.setVisibility(View.VISIBLE);
+        h.removeCallbacks(hideBar);
+        h.postDelayed(hideBar, 5000);
+    }
+
+    // Sound track / subtitles of this channel or video (films often carry several languages)
+    private void pickTrack(boolean audio) {
+        if (mp == null) return;
+        final MediaPlayer.TrackDescription[] ts = audio ? mp.getAudioTracks() : mp.getSpuTracks();
+        if (ts == null || ts.length == 0) {
+            show(audio ? "No other sound track in this video." : "No subtitles in this video.");
+            return;
+        }
+        String[] names = new String[ts.length];
+        int cur = audio ? mp.getAudioTrack() : mp.getSpuTrack();
+        int sel = -1;
+        for (int k = 0; k < ts.length; k++) {
+            names[k] = ts[k].name == null ? "Track " + (k + 1) : ts[k].name;
+            if (ts[k].id == cur) sel = k;
+        }
+        h.removeCallbacks(hideBar);
+        new android.app.AlertDialog.Builder(this)
+            .setTitle(audio ? "Sound" : "Subtitles")
+            .setSingleChoiceItems(names, sel, (d, w) -> {
+                if (mp != null) {
+                    if (audio) mp.setAudioTrack(ts[w].id);
+                    else mp.setSpuTrack(ts[w].id);
+                }
+                d.dismiss();
+            })
+            .show();
+    }
+
     private void togglePause() {
         if (mp == null) return;
         if (mp.isPlaying()) { mp.pause(); show("Paused"); } else { mp.play(); show("Playing"); }
@@ -187,6 +297,7 @@ public class VlcActivity extends Activity {
         long t = Math.max(0, mp.getTime() + ms);
         mp.setTime(t);
         show(fmt(t) + " / " + fmt(mp.getLength()));
+        showBar();
     }
 
     private static String fmt(long ms) {
@@ -226,6 +337,11 @@ public class VlcActivity extends Activity {
                 return true;
             case KeyEvent.KEYCODE_MEDIA_PREVIOUS:
                 zap(-1);
+                return true;
+            case KeyEvent.KEYCODE_MENU:
+                new android.app.AlertDialog.Builder(this)
+                    .setItems(new String[] { "Sound", "Subtitles" }, (d, w) -> pickTrack(w == 0))
+                    .show();
                 return true;
             case KeyEvent.KEYCODE_BACK:
                 finishWithPos();
