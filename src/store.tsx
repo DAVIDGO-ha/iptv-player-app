@@ -336,7 +336,7 @@ function useStore() {
     favItems[kind + ':' + id]
 
   // Firestick / Android TV: everything plays in the Pro player (VLC engine) — picture + every sound format,
-  // CH+/CH– and Up/Down change channel. Phones / laptops keep the built-in player.
+  // CH+/CH– and Up/Down change channel. Android phones / tablets: Live TV and episodes too. Laptops keep the built-in player.
   const play = (req: PlayRequest | null) => {
     if (!req || !active || !proFor(req.kind, req.url)) return setPlayer(req)
     const live = req.kind === 'live'

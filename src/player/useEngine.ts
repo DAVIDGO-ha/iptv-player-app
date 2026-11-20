@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { attachEngine, detectType, type Engine } from '../lib/engines'
 import { attachTranscode, canTranscode, needsTranscode, probe } from '../lib/transcode'
 import { isProOpen, onProOpen } from '../lib/pro'
+import { dropRoute, unrouted } from '../lib/net'
 
 // Attach the right engine to a <video>, with automatic fallback between formats.
 export function useEngine(videoRef: React.RefObject<HTMLVideoElement>, wantUrl: string | undefined, live: boolean) {
@@ -49,11 +50,16 @@ export function useEngine(videoRef: React.RefObject<HTMLVideoElement>, wantUrl: 
     }, 2500)
     const first = detectType(url, live ? 'live' : undefined)
     // Fallback order per first guess
-    const order: { u: string; t: 'hls' | 'ts' | 'native' }[] = [{ u: url, t: first }]
+    const order: { u: string; t: 'hls' | 'ts' | 'native'; plain?: boolean }[] = [{ u: url, t: first }]
     if (live && /\.ts(\?|$)/.test(url)) order.push({ u: url.replace(/\.ts(\?|$)/, '.m3u8$1'), t: 'hls' })
     if (live && /\.m3u8(\?|$)/.test(url)) order.push({ u: url.replace(/\.m3u8(\?|$)/, '.ts$1'), t: 'ts' })
     if (first === 'native') order.push({ u: url, t: 'hls' })
     if (first !== 'native') order.push({ u: url, t: 'native' })
+    // The link was switched to the server's address (anti-block) and does not play → last try with the server's own
+    // name: a proxy / shared server only answers to its name. If that plays, the switch is removed for this server.
+    const plain = unrouted(url)
+    if (plain) order.push({ u: plain, t: first, plain: true })
+    let curPlain = false
 
     let step = 0
     // Once a format has played, a drop (server hiccup, Wi-Fi blip, stream restart) reconnects the SAME format
@@ -62,7 +68,8 @@ export function useEngine(videoRef: React.RefObject<HTMLVideoElement>, wantUrl: 
     let reconnects = 0
     let lastGood = 0
     let reconnecting = false
-    const attach = async (o: { u: string; t: 'hls' | 'ts' | 'native' }, resumeAt = 0) => {
+    const attach = async (o: { u: string; t: 'hls' | 'ts' | 'native'; plain?: boolean }, resumeAt = 0) => {
+      curPlain = !!o.plain
       const e = await attachEngine(v, o.u, {
         live,
         type: o.t,
@@ -86,6 +93,10 @@ export function useEngine(videoRef: React.RefObject<HTMLVideoElement>, wantUrl: 
         setError(why || 'This stream could not be played.')
         return
       }
+      // Not the first try: the server needs a moment to free the line's connection (one connection per line —
+      // a new try straight away is refused, and the stream looks "stopped")
+      if (step > 1) await new Promise((r) => setTimeout(r, 1500))
+      if (dead) return
       try {
         await attach(o)
       } catch (err: any) {
@@ -100,7 +111,7 @@ export function useEngine(videoRef: React.RefObject<HTMLVideoElement>, wantUrl: 
       const resumeAt = live ? 0 : v.currentTime
       engRef.current?.destroy()
       engRef.current = null
-      await new Promise((r) => setTimeout(r, Math.min(1000 * reconnects, 5000)))
+      await new Promise((r) => setTimeout(r, Math.min(1500 + 1500 * reconnects, 8000))) // let the server free the connection first
       reconnecting = false
       if (dead) return
       try {
@@ -113,6 +124,7 @@ export function useEngine(videoRef: React.RefObject<HTMLVideoElement>, wantUrl: 
     const onPlaying = () => {
       worked = true
       lastGood = Date.now()
+      if (curPlain) dropRoute(plain)
     }
     v.addEventListener('playing', onPlaying)
     // Frozen picture (no error, time not moving) for 12 s while it should be playing → reconnect

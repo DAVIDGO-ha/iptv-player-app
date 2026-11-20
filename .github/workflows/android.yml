@@ -231,5 +231,11 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           ls -la dist
+          # Test branches never touch the version customers download: their APK goes to the separate "test" pre-release
+          if [ "$GITHUB_REF_NAME" != "main" ]; then
+            gh release delete test -y --cleanup-tag || true
+            gh release create test dist/IPTV-PLAYER.apk --prerelease --target "$GITHUB_SHA" -t "TEST build ($GITHUB_REF_NAME) — not for customers" -n "Test version of branch $GITHUB_REF_NAME. Customers keep downloading Releases › latest."
+            exit 0
+          fi
           gh release delete latest -y --cleanup-tag || true
           gh release create latest dist/* -t "IPTV PLAYER (all devices)" -n "Android phone/TV/Firestick: IPTV-PLAYER.apk · Windows: IPTV-PLAYER-Windows.exe · Mac: IPTV-PLAYER-Mac.dmg · Linux: IPTV-PLAYER-Linux.AppImage · LG TV: IPTV-PLAYER-LG-webOS.ipk · Samsung TV: IPTV-PLAYER-Samsung-Tizen.zip · Other TVs/browsers: IPTV-PLAYER-Web.zip"

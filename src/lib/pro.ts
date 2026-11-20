@@ -52,8 +52,33 @@ export function proFor(kind: string, url: string): boolean {
     e = JSON.parse(localStorage.getItem('ip.settings') || '{}').engine || 'auto'
   } catch {}
   if (e === 'builtin') return false
-  return proPreferred() || kind === 'episode' || /\.(mkv|avi)(\?|$)/i.test(url)
+  // Live TV: always the VLC engine in the Android app (phone, tablet, TV) — one steady connection, reconnects by itself
+  return proPreferred() || kind === 'live' || kind === 'episode' || /\.(mkv|avi)(\?|$)/i.test(url)
 }
+
+// ——— Small VLC player inside the app screen (Android app): the channel plays next to the list, like Hot Player ———
+const vlc = (m: string, a: any = {}): Promise<any> => {
+  const C = W.Capacitor
+  try {
+    return Promise.resolve(C?.nativePromise ? C.nativePromise('VlcPlayer', m, a) : C?.Plugins?.VlcPlayer?.[m]?.(a))
+  } catch (e) {
+    return Promise.reject(e)
+  }
+}
+/** Android app, unless "Built-in" is chosen in Settings › Player engine. */
+export function embedOk(): boolean {
+  if (!hasNativePro()) return false
+  try {
+    return (JSON.parse(localStorage.getItem('ip.settings') || '{}').engine || 'auto') !== 'builtin'
+  } catch {
+    return true
+  }
+}
+export type Box = { x: number; y: number; w: number; h: number } // fractions (0–1) of the page
+export const embedPlay = (url: string, live: boolean, box: Box) => vlc('embedPlay', { url, live, ua: UA, ...box })
+export const embedRect = (box: Box) => vlc('embedRect', box).catch(() => {})
+export const embedStop = () => vlc('embedStop').catch(() => {})
+export const embedState = (): Promise<{ state?: string; video?: boolean } | undefined> => vlc('embedState').catch(() => undefined)
 
 /** Android app (phone or TV): formats that never have sound / picture in the built-in player go straight to the Pro player.
  *  Everything else may play inside the dashboard first (the right-hand screen), like Live TV. */

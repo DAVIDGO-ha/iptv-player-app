@@ -38,6 +38,9 @@ public class VlcActivity extends Activity {
     private String[] urls;
     private String[] titles;
     private int index = 0;
+    private int retries = 0;
+    private int reGen = 0;
+    private long goodAt = 0;
     private final Handler h = new Handler(Looper.getMainLooper());
     private final Runnable hide = () -> { if (info != null) info.setVisibility(View.GONE); };
 
@@ -76,6 +79,7 @@ public class VlcActivity extends Activity {
             switch (e.type) {
                 case MediaPlayer.Event.Playing:
                     spin.setVisibility(View.GONE);
+                    goodAt = System.currentTimeMillis();
                     if (start > 0 && !live) { mp.setTime(start); start = 0; }
                     if (!checkPosted) { checkPosted = true; h.postDelayed(this::checkPicture, 6000); }
                     break;
@@ -86,11 +90,13 @@ public class VlcActivity extends Activity {
                     spin.setVisibility(e.getBuffering() < 100f ? View.VISIBLE : View.GONE);
                     break;
                 case MediaPlayer.Event.EndReached:
-                    if (!live && urls != null && index < urls.length - 1) zap(1); // next episode
+                    if (live) reconnect(); // a live channel never really ends: the server closed the stream → same link again
+                    else if (urls != null && index < urls.length - 1) zap(1); // next episode
                     else finishWithPos();
                     break;
                 case MediaPlayer.Event.EncounteredError:
-                    show("This stream could not be played.");
+                    if (live) reconnect();
+                    else show("This stream could not be played.");
                     break;
             }
         });
@@ -102,11 +108,34 @@ public class VlcActivity extends Activity {
         load(true);
     }
 
+    // Live stream dropped → wait a little (the server frees the line's connection), then the same link again
+    private void reconnect() {
+        if (mp == null) return;
+        if (goodAt > 0 && System.currentTimeMillis() - goodAt > 60000) retries = 0; // it played well for a minute → fresh retries
+        goodAt = 0;
+        if (++retries > 6) {
+            spin.setVisibility(View.GONE);
+            show("The stream stopped. Check your internet, then try again.");
+            return;
+        }
+        spin.setVisibility(View.VISIBLE);
+        final int gen = ++reGen;
+        h.postDelayed(() -> {
+            if (mp == null || gen != reGen || isFinishing()) return;
+            mp.stop();
+            load(!softMode);
+            mp.play();
+        }, Math.min(3000L * retries, 10000L));
+    }
+
     // Up/Down, CH+/CH–: next / previous channel (or episode)
     private void zap(int dir) {
         if (urls == null || urls.length < 2 || mp == null) return;
         index = (index + dir + urls.length) % urls.length;
         uri = Uri.parse(urls[index]);
+        retries = 0;
+        goodAt = 0;
+        reGen++;
         gotVideo = false;
         softMode = false;
         checkPosted = false;
@@ -231,6 +260,7 @@ public class VlcActivity extends Activity {
     @Override
     protected void onStop() {
         super.onStop();
+        reGen++; // no reconnect while the player is closed / in the background
         if (mp != null) {
             mp.stop();
             mp.detachViews();
