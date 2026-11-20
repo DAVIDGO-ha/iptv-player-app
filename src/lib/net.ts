@@ -19,9 +19,25 @@ const markOk = (h: string) => {
 /** Use the saved working address for a blocked server (also for every channel / movie / episode link). */
 export function routed(url: string): string {
   if (PLAY) return url // Google Play version: no anti-block route
+  if (/^https:/i.test(url)) return url // an https link needs the server's name (its certificate) → never switched
   const h = hostOf(url)
   const r = h && routes[h]
   return r ? url.replace(/^(https?:\/\/)[^/?#:]+/i, '$1' + r.ip) : url
+}
+/** A link that was switched to the server's address → the same link with the server's name again ('' when it was not switched). */
+export function unrouted(url: string): string {
+  const h = hostOf(url)
+  if (!isIp(h)) return ''
+  const name = Object.keys(routes).find((k) => routes[k].ip === h)
+  return name ? url.replace(/^(https?:\/\/)[^/?#:]+/i, '$1' + name) : ''
+}
+/** The switched address does not play but the server's own name does (a proxy / shared server that needs its name,
+ *  not a blocked one) → stop switching for this server, so every channel uses the name again. */
+export function dropRoute(url: string) {
+  const h = hostOf(url)
+  if (!h || !routes[h]) return
+  delete routes[h]
+  saveRoutes()
 }
 // Ask OUR server (www.iptv-player-tv.com) for the IPTV server's real address — it looks it up outside the
 // customer's internet provider. Nothing else: no VPN, no tunnel.

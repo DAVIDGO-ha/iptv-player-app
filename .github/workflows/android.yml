@@ -77,10 +77,10 @@ jobs:
           sed -i 's|<uses-permission android:name="android.permission.INTERNET" />|<uses-permission android:name="android.permission.INTERNET" />\n    <uses-feature android:name="android.hardware.touchscreen" android:required="false" />\n    <uses-feature android:name="android.software.leanback" android:required="false" />\n    <uses-feature android:name="android.hardware.faketouch" android:required="false" />|' $M
           # phone app opens in landscape, like IBO Player / IPTV Smarters
           sed -i 's|android:name=".MainActivity"|android:name=".MainActivity" android:screenOrientation="sensorLandscape"|' $M
-          # Pro player (libVLC): plays Dolby AC3 / E-AC3 / DTS sound that the WebView can't
+          # Native players: libVLC (plays Dolby AC3 / E-AC3 / DTS sound that the WebView can't) + ExoPlayer (Settings › Video engine)
           cp platforms/android/java/*.java android/app/src/main/java/com/iptvplayer/app/
-          sed -i 's#</application>#    <activity android:name=".VlcActivity" android:theme="@style/AppTheme.NoActionBar" android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|keyboard|navigation|uiMode" android:screenOrientation="sensorLandscape" android:exported="false" />\n    </application>#' $M
-          printf "\ndependencies {\n    implementation 'org.videolan.android:libvlc-all:3.6.0'\n}\nandroid {\n    defaultConfig {\n        ndk { abiFilters 'armeabi-v7a', 'arm64-v8a' }\n    }\n    packagingOptions {\n        jniLibs { useLegacyPackaging true }\n    }\n}\n" >> android/app/build.gradle
+          sed -i 's#</application>#    <activity android:name=".VlcActivity" android:theme="@style/AppTheme.NoActionBar" android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|keyboard|navigation|uiMode" android:screenOrientation="sensorLandscape" android:exported="false" />\n    <activity android:name=".ExoActivity" android:theme="@style/AppTheme.NoActionBar" android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|keyboard|navigation|uiMode" android:screenOrientation="sensorLandscape" android:exported="false" />\n    </application>#' $M
+          printf "\ndependencies {\n    implementation 'org.videolan.android:libvlc-all:3.6.0'\n    implementation 'androidx.media3:media3-exoplayer:1.4.1'\n    implementation 'androidx.media3:media3-exoplayer-hls:1.4.1'\n    implementation 'androidx.media3:media3-ui:1.4.1'\n}\nandroid {\n    defaultConfig {\n        ndk { abiFilters 'armeabi-v7a', 'arm64-v8a' }\n    }\n    packagingOptions {\n        jniLibs { useLegacyPackaging true }\n    }\n}\n" >> android/app/build.gradle
           tail -15 android/app/build.gradle
           mkdir -p android/app/src/main/res/drawable
           cp platforms/android/banner.png android/app/src/main/res/drawable/banner.png
@@ -123,12 +123,15 @@ jobs:
           sed -i 's|<uses-permission android:name="android.permission.INTERNET" />|<uses-permission android:name="android.permission.INTERNET" />\n    <uses-feature android:name="android.hardware.touchscreen" android:required="false" />\n    <uses-feature android:name="android.software.leanback" android:required="false" />\n    <uses-feature android:name="android.hardware.faketouch" android:required="false" />|' $M
           sed -i 's|android:name=".MainActivity"|android:name=".MainActivity" android:screenOrientation="sensorLandscape"|' $M
           cp platforms/android/java/*.java platforms/android/play/*.java android/app/src/main/java/com/iptvplayer/app/
-          sed -i 's#</application>#    <activity android:name=".VlcActivity" android:theme="@style/AppTheme.NoActionBar" android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|keyboard|navigation|uiMode" android:screenOrientation="sensorLandscape" android:exported="false" />\n    </application>#' $M
+          sed -i 's#</application>#    <activity android:name=".VlcActivity" android:theme="@style/AppTheme.NoActionBar" android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|keyboard|navigation|uiMode" android:screenOrientation="sensorLandscape" android:exported="false" />\n    <activity android:name=".ExoActivity" android:theme="@style/AppTheme.NoActionBar" android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|keyboard|navigation|uiMode" android:screenOrientation="sensorLandscape" android:exported="false" />\n    </application>#' $M
           V=$((1000 + ${{ github.run_number }}))
           cat >> android/app/build.gradle <<GRADLE
 
           dependencies {
               implementation 'org.videolan.android:libvlc-all:3.6.5'
+              implementation 'androidx.media3:media3-exoplayer:1.4.1'
+              implementation 'androidx.media3:media3-exoplayer-hls:1.4.1'
+              implementation 'androidx.media3:media3-ui:1.4.1'
               implementation 'com.android.billingclient:billing:8.0.0'
           }
           android {
@@ -231,5 +234,11 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           ls -la dist
+          # Test branches never touch the version customers download: their APK goes to the separate "test" pre-release
+          if [ "$GITHUB_REF_NAME" != "main" ]; then
+            gh release delete test -y --cleanup-tag || true
+            gh release create test dist/IPTV-PLAYER.apk --prerelease --target "$GITHUB_SHA" -t "TEST build ($GITHUB_REF_NAME) — not for customers" -n "Test version of branch $GITHUB_REF_NAME. Customers keep downloading Releases › latest."
+            exit 0
+          fi
           gh release delete latest -y --cleanup-tag || true
           gh release create latest dist/* -t "IPTV PLAYER (all devices)" -n "Android phone/TV/Firestick: IPTV-PLAYER.apk · Windows: IPTV-PLAYER-Windows.exe · Mac: IPTV-PLAYER-Mac.dmg · Linux: IPTV-PLAYER-Linux.AppImage · LG TV: IPTV-PLAYER-LG-webOS.ipk · Samsung TV: IPTV-PLAYER-Samsung-Tizen.zip · Other TVs/browsers: IPTV-PLAYER-Web.zip"

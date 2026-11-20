@@ -335,8 +335,8 @@ function useStore() {
     Object.entries(catItems).find(([k, v]) => k.startsWith(kind + ':') && v.some((i) => i.id === id))?.[1].find((i) => i.id === id) ||
     favItems[kind + ':' + id]
 
-  // Firestick / Android TV: everything plays in the Pro player (VLC engine) — picture + every sound format,
-  // CH+/CH– and Up/Down change channel. Phones / laptops keep the built-in player.
+  // Android app (phone, tablet, Firestick, Android TV): everything plays in the native player (VLC or ExoPlayer,
+  // Settings › Video engine) — CH+/CH– and Up/Down change channel. Laptops / Samsung / LG keep the built-in player.
   const play = (req: PlayRequest | null) => {
     if (!req || !active || !proFor(req.kind, req.url)) return setPlayer(req)
     const live = req.kind === 'live'

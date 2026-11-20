@@ -7,7 +7,8 @@ import { streamFor } from '../lib/catalog'
 import { epgCached, nowNext, programmesFor } from '../lib/epg'
 import { timeshiftUrl, xtArchive, xtShortEpg } from '../lib/xtream'
 import { proxied } from '../lib/net'
-import { playPro } from '../lib/pro'
+import { embedOk, playPro } from '../lib/pro'
+import { useVlcEmbed } from '../player/useVlcEmbed'
 import { RecButton } from './Rec'
 import type { Item, Programme } from '../lib/types'
 
@@ -157,8 +158,15 @@ function Preview({ ch, list }: { ch: Item; list: Item[] }) {
   const app = useApp()
   const v = useRef<HTMLVideoElement>(null)
   const url = app.active && !app.player ? streamFor(app.active, ch) : '' // pause preview while full player is open
-  const { error, engine, noAudio: noSnd, noVideo } = useEngine(v, url, true)
-  const noAudio = noSnd || noVideo
+  // Android app: the small player is the VLC engine (like Hot Player) → one steady connection, every picture / sound format
+  const native = embedOk()
+  const box = useRef<HTMLDivElement>(null)
+  const web = useEngine(v, native ? '' : url, true)
+  const emb = useVlcEmbed(box, native ? url : '')
+  const error = native ? (emb.state === 'error' ? 'The stream stopped. Check your internet, then try again.' : '') : web.error
+  const engine = native ? emb.state === 'playing' : web.engine
+  const noVideo = !native && web.noVideo
+  const noAudio = !native && (web.noAudio || web.noVideo)
   const [epg, setEpg] = useState<Programme[]>(() => programmesFor(epgCached(app.active!.id), ch.epgId, ch.name))
   const [catchup, setCatchup] = useState(false)
   useEffect(() => {
@@ -171,15 +179,20 @@ function Preview({ ch, list }: { ch: Item; list: Item[] }) {
 
   return (
     <div className="preview">
-      <div className="preview-video" onClick={() => playLive(app, ch, list)}>
-        <video ref={v} playsInline autoPlay muted={false} />
+      <div className="preview-video" ref={box} onClick={() => playLive(app, ch, list)}>
+        {!native && <video ref={v} playsInline autoPlay muted={false} />}
         {!engine && !error && (
           <div className="p-center">
             <Spinner />
           </div>
         )}
         {error && <div className="p-center small muted pad">{error}</div>}
-        {(noAudio || error) && (
+        {native && error && (
+          <button className="noaudio-chip" onClick={(e) => (e.stopPropagation(), emb.retry())}>
+            <Icon n="refresh" s={15} /> Retry
+          </button>
+        )}
+        {!native && (noAudio || error) && (
           <button className="noaudio-chip" onClick={(e) => (e.stopPropagation(), playPro({ url, title: ch.name, live: true }))}>
             <Icon n="mute" s={15} /> {error ? 'Play with' : noVideo ? 'No picture?' : 'No sound?'} Pro player
           </button>
