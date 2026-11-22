@@ -138,7 +138,7 @@ function useStore() {
         remote.forEach((r) => {
           const old = cur.find((p) => p.id === r.id)
           if (old && !same(r, old)) {
-            idbDel('cat.' + r.id)
+            idbDel('cat2.' + r.id)
             idbDel('epg.' + r.id)
             if (r.id === activeId) load(r, true)
           }
@@ -190,7 +190,7 @@ function useStore() {
     setActiveId(id)
     write('ip.active', id)
     if (editId) {
-      await idbDel('cat.' + id)
+      await idbDel('cat2.' + id)
       await idbDel('epg.' + id)
       load(pl, true)
     }
@@ -277,7 +277,7 @@ function useStore() {
       if (!active || active.type !== 'xtream' || catItems[key]) return
       setCatBusy(key)
       try {
-        const ck = `cati.${active.id}.${key}`
+        const ck = `cati2.${active.id}.${key}`
         const cached = await idbGet<{ at: number; items: Item[] }>(ck)
         let items = cached && Date.now() - cached.at < 12 * 36e5 ? cached.items : null
         if (!items) {
@@ -300,7 +300,7 @@ function useStore() {
       if (!active || active.type !== 'xtream' || allItems[kind] || allBusy === kind) return
       setAllBusy(kind)
       try {
-        const ck = `alli.${active.id}.${kind}`
+        const ck = `alli2.${active.id}.${kind}`
         const cached = await idbGet<{ at: number; items: Item[] }>(ck)
         let items = cached && Date.now() - cached.at < 12 * 36e5 ? cached.items : null
         if (!items) {

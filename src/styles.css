@@ -3261,3 +3261,20 @@ html.tv .vod-cards .poster {
   background: rgba(0, 0, 0, 0.55);
   color: #fff;
 }
+
+/* Full names: titles, channels and categories wrap onto more lines instead of being cut with "…" */
+.poster-name.ellip,
+.cat-row .ellip,
+.ch-row .ellip.strong,
+.vod-row .ellip.strong {
+  white-space: normal;
+  text-overflow: clip;
+  overflow-wrap: anywhere;
+  line-height: 1.25;
+}
+.poster-name.ellip {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
