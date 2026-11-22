@@ -331,7 +331,7 @@ export function MovieDetail({ id, given, pane }: { id: string; given?: Item; pan
         <div className="detail-main">
           {!pane && <Img className="detail-poster" src={info?.movie_image || item.logo} alt={item.name} />}
           <div className="detail-text">
-            <h1 className="hero-title">{info?.name || item.name}</h1>
+            <h1 className="hero-title">{item.name || info?.name}</h1>
             <div className="meta-line">
               {(info?.releasedate || item.year) && <span>{String(info?.releasedate || item.year).slice(0, 4)}</span>}
               {info?.duration && <span>{info.duration}</span>}
@@ -467,7 +467,7 @@ export function SeriesDetail({ id, resume, given, pane }: { id: string; resume?:
         <div className="detail-main">
           {!pane && <Img className="detail-poster" src={info?.cover || item.logo} alt={item.name} />}
           <div className="detail-text">
-            <h1 className="hero-title">{info?.name || item.name}</h1>
+            <h1 className="hero-title">{item.name || info?.name}</h1>
             <div className="meta-line">
               {(info?.releaseDate || item.year) && <span>{String(info?.releaseDate || item.year).slice(0, 4)}</span>}
               {seasons.length > 0 && <span>{seasons.length} Season{seasons.length > 1 ? 's' : ''}</span>}
