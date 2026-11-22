@@ -1,5 +1,6 @@
 // Country background: the living-room picture has a UK flag. On other countries' devices the flag is
 // repainted (right on the device, no extra download) with that country's flag, waving the same way.
+import { applyBgChoice } from './bgpick'
 import { getSettings, onSettings } from './settings'
 
 export const COUNTRIES: [string, string][] = [
@@ -262,6 +263,7 @@ export function flagBackground(src: string, cc: string): Promise<string> {
 // Applies the right background for the viewer's country and follows the setting
 export function initCountryBackground() {
   const apply = async () => {
+    if (applyBgChoice()) return // a picture or colour chosen in Settings › Background
     const body = document.body
     const cc = country()
     if (cc === 'GB' || !FLAGS[cc]) {

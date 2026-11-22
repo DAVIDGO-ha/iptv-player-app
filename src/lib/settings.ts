@@ -21,6 +21,7 @@ export type Settings = {
   engine: 'auto' | 'pro' | 'builtin' // auto / pro = native player in the Android app · builtin = web engine
   nativeEngine: 'vlc' | 'exo' // Android app: which native engine plays (VLC = every format · ExoPlayer = Android's own)
   region: string // background flag: 'auto' or a country code (GB, DE, FR…)
+  bg: string // background: 'default', a picture (sky / aurora / lights / sunset) or a colour '#rrggbb'
   uiLang: string // app language: auto / en / fr / de / es
 }
 
@@ -46,6 +47,7 @@ export const DEFAULTS: Settings = {
   engine: 'auto',
   nativeEngine: 'vlc',
   region: 'auto',
+  bg: 'default',
   uiLang: 'auto',
 }
 
