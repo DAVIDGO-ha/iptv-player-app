@@ -1,4 +1,5 @@
 import { fetchJSON } from './net'
+import { cleanCats, cleanName } from './clean'
 import type { Catalog, Category, Item, Playlist, Programme, Kind, Episode } from './types'
 
 const enc = encodeURIComponent
@@ -21,12 +22,14 @@ export async function xtLogin(p: Playlist) {
 }
 
 function cats(list: any[], kind: Kind): Category[] {
-  return (Array.isArray(list) ? list : []).map((c) => ({
-    id: String(c.category_id),
-    name: String(c.category_name || 'Unnamed'),
-    kind,
-    adult: ADULT.test(c.category_name || ''),
-  }))
+  return cleanCats(
+    (Array.isArray(list) ? list : []).map((c) => ({
+      id: String(c.category_id),
+      name: String(c.category_name || 'Unnamed'),
+      kind,
+      adult: ADULT.test(c.category_name || ''),
+    }))
+  )
 }
 
 export async function xtCatalog(p: Playlist, onStep?: (s: string) => void): Promise<Catalog> {
@@ -41,7 +44,7 @@ export async function xtCatalog(p: Playlist, onStep?: (s: string) => void): Prom
   const live: Item[] = (Array.isArray(ls) ? ls : []).map((s: any, i: number) => ({
     id: String(s.stream_id),
     kind: 'live',
-    name: String(s.name || '').trim(),
+    name: cleanName(s.name),
     logo: s.stream_icon || '',
     categoryId: String(s.category_id ?? ''),
     num: Number(s.num) || i + 1,
@@ -63,7 +66,7 @@ export async function xtCatalog(p: Playlist, onStep?: (s: string) => void): Prom
 export const mapMovie = (s: any): Item => ({
     id: String(s.stream_id),
     kind: 'movie',
-    name: String(s.name || '').trim(),
+    name: cleanName(s.name),
     logo: s.stream_icon || '',
     categoryId: String(s.category_id ?? ''),
     ext: s.container_extension || 'mp4',
@@ -74,7 +77,7 @@ export const mapMovie = (s: any): Item => ({
 export const mapSeries = (s: any): Item => ({
     id: String(s.series_id),
     kind: 'series',
-    name: String(s.name || '').trim(),
+    name: cleanName(s.name),
     logo: s.cover || '',
     categoryId: String(s.category_id ?? ''),
     rating: parseFloat(s.rating_5based ? s.rating_5based * 2 : s.rating) || 0,
@@ -123,7 +126,7 @@ export async function xtSeriesInfo(p: Playlist, id: string): Promise<{ info: any
         id: String(e.id),
         season: Number(e.season) || 1,
         episode: Number(e.episode_num) || 0,
-        title: e.title || `Episode ${e.episode_num}`,
+        title: cleanName(e.title || `Episode ${e.episode_num}`),
         ext: e.container_extension || 'mp4',
         image: e.info?.movie_image || '',
         plot: e.info?.plot || '',

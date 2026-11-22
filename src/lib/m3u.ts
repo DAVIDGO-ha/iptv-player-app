@@ -1,4 +1,5 @@
 import type { Catalog, Category, Item, Kind, Episode } from './types'
+import { cleanCats, cleanName } from './clean'
 
 const VOD_EXT = /\.(mp4|mkv|avi|mov|m4v|wmv|flv|webm|mpg|mpeg)(\?|$)/i
 const SERIES_RE = /^(.*?)[\s._\-|]*S(\d{1,2})[\s._-]*E(\d{1,4})/i
@@ -58,7 +59,7 @@ export function parseM3U(text: string): Catalog {
     const isMovieUrl = /\/movie\//i.test(url)
     const sm = info.name.match(SERIES_RE)
     if (isSeriesUrl || (sm && (VOD_EXT.test(url) || !/\/live\//i.test(url)) && !(a['tvg-id'] && !VOD_EXT.test(url)))) {
-      const sname = (sm ? sm[1] : info.name).replace(/[\s._\-|]+$/, '').trim() || info.name
+      const sname = cleanName((sm ? sm[1] : info.name).replace(/[\s._\-|]+$/, '').trim() || info.name)
       const key = g + '|' + sname.toLowerCase()
       let s = seriesMap.get(key)
       if (!s) {
@@ -69,18 +70,18 @@ export function parseM3U(text: string): Catalog {
         id: 'e' + hash(url),
         season: sm ? Number(sm[2]) : 1,
         episode: sm ? Number(sm[3]) : s.episodes!.length + 1,
-        title: info.name,
+        title: cleanName(info.name),
         url,
         image: logo,
       }
       s.episodes!.push(ep)
     } else if (isMovieUrl || VOD_EXT.test(url)) {
-      movie.push({ id: 'm' + hash(url), kind: 'movie', name: info.name, logo, categoryId: cat('movie', g), url, ext: url.split('?')[0].split('.').pop() })
+      movie.push({ id: 'm' + hash(url), kind: 'movie', name: cleanName(info.name), logo, categoryId: cat('movie', g), url, ext: url.split('?')[0].split('.').pop() })
     } else {
       live.push({
         id: 'l' + hash(url + live.length),
         kind: 'live',
-        name: info.name,
+        name: cleanName(info.name),
         logo,
         categoryId: cat('live', g),
         num: Number(a['tvg-chno']) || live.length + 1,
@@ -95,9 +96,9 @@ export function parseM3U(text: string): Catalog {
   const series = [...seriesMap.values()]
   series.forEach((s) => s.episodes!.sort((a, b) => a.season - b.season || a.episode - b.episode))
   return {
-    live: { cats: [...catMaps.live.values()], items: live },
-    movie: { cats: [...catMaps.movie.values()], items: movie },
-    series: { cats: [...catMaps.series.values()], items: series },
+    live: { cats: cleanCats([...catMaps.live.values()]), items: live },
+    movie: { cats: cleanCats([...catMaps.movie.values()]), items: movie },
+    series: { cats: cleanCats([...catMaps.series.values()]), items: series },
     fetchedAt: Date.now(),
     epgUrl: epg,
   }

@@ -6,7 +6,7 @@ import { getSettings } from './settings'
 import type { Catalog, Episode, Item, Playlist } from './types'
 
 export async function loadCatalog(p: Playlist, force = false, onStep?: (s: string) => void): Promise<Catalog> {
-  const key = 'cat.' + p.id
+  const key = 'cat2.' + p.id // cat2: clean names (no "VOD | EN -" codes)
   if (!force) {
     const c = await idbGet<Catalog>(key)
     if (c) return c
