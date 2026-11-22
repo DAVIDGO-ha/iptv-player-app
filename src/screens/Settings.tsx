@@ -12,6 +12,7 @@ import type { Kind } from '../lib/types'
 import { canPro, hasNativePro } from '../lib/pro'
 import { COUNTRIES } from '../lib/bgflag'
 import { LANGS } from '../lib/i18n'
+import { BgPicker } from './BgPicker'
 
 const ACCENTS = ['#FF2D3A', '#0A84FF', '#5E5CE6', '#BF5AF2', '#FF375F', '#FF9F0A', '#30D158', '#FFFFFF']
 export const VERSION = '1.0.0'
@@ -126,6 +127,8 @@ export function Settings() {
             ))}
           </select>
         </Row>
+        <Row icon="star" label="Background" sub="Picture or colour behind the app" />
+        <BgPicker defaultStyle={{ backgroundImage: 'url(./bg/room-sm.jpg)' }} />
       </Group>
 
       <Group title="Player">
