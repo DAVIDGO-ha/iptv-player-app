@@ -8,6 +8,7 @@ import { epgCached, nowNext, programmesFor } from '../lib/epg'
 import { timeshiftUrl, xtArchive, xtShortEpg } from '../lib/xtream'
 import { proxied } from '../lib/net'
 import { embedOk, playPro } from '../lib/pro'
+import { LITE } from '../lib/flavor'
 import { useVlcEmbed } from '../player/useVlcEmbed'
 import { RecButton } from './Rec'
 import type { Item, Programme } from '../lib/types'
@@ -157,7 +158,7 @@ export function Live({ sports = false }: { sports?: boolean }) {
 function Preview({ ch, list }: { ch: Item; list: Item[] }) {
   const app = useApp()
   const v = useRef<HTMLVideoElement>(null)
-  const url = app.active && !app.player ? streamFor(app.active, ch) : '' // pause preview while full player is open
+  const url = app.active && !app.player && !LITE ? streamFor(app.active, ch) : '' // Lite (old TVs): no small player, OK opens full screen // pause preview while full player is open
   // Android app: the small player is the VLC engine (like Hot Player) → one steady connection, every picture / sound format
   const native = embedOk()
   const box = useRef<HTMLDivElement>(null)

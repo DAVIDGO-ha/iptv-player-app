@@ -8,6 +8,8 @@ fs.rmSync(out, { recursive: true, force: true })
 fs.mkdirSync(out, { recursive: true })
 fs.cpSync('public', out, { recursive: true })
 fs.copyFileSync('index.html', path.join(out, 'index.html'))
+// Lite version (old TVs): no background pictures at all
+if (process.env.LITE === '1') fs.rmSync(path.join(out, 'bg'), { recursive: true, force: true })
 
 // Bundle hls.js / mpegts.js locally when installed (offline-capable apps); otherwise the app loads them from CDN.
 const vendor = [
@@ -30,7 +32,7 @@ const opts = {
   jsx: 'automatic',
   external: ['./bg/*'], // background images are copied from public/
   loader: { '.svg': 'dataurl', '.png': 'dataurl' },
-  define: { 'process.env.NODE_ENV': '"production"', 'process.env.SITE_URL': JSON.stringify(process.env.SITE_URL || ''), 'process.env.PLAY': JSON.stringify(process.env.PLAY || '') },
+  define: { 'process.env.NODE_ENV': '"production"', 'process.env.SITE_URL': JSON.stringify(process.env.SITE_URL || ''), 'process.env.PLAY': JSON.stringify(process.env.PLAY || ''), 'process.env.LITE': JSON.stringify(process.env.LITE || '') },
   nodePaths: process.env.NODE_PATH ? process.env.NODE_PATH.split(':') : [],
   logLevel: 'info',
 }

@@ -2,6 +2,7 @@ name: Build IPTV PLAYER (all devices)
 # Every push builds every version and publishes them to Releases › latest:
 #   IPTV-PLAYER.apk                  Android phones, tablets, Android TV / Google TV (Sony, TCL, Philips, Hisense,
 #                                    Xiaomi, Nvidia Shield…), Firestick / Fire TV, Android TV boxes
+#   IPTV-PLAYER-Lite.apk           Old / slow TVs, old Firesticks and TV boxes (smaller, low memory)
 #   IPTV-PLAYER-Windows.exe          Windows 7/10/11 (32 + 64-bit)
 #   IPTV-PLAYER-Mac.dmg              macOS (Intel + Apple Silicon)
 #   IPTV-PLAYER-Linux.AppImage       Linux
@@ -92,6 +93,55 @@ jobs:
       - run: mkdir -p out && cp $APP/android/app/build/outputs/apk/debug/app-debug.apk out/IPTV-PLAYER.apk
       - uses: actions/upload-artifact@v4
         with: { name: android, path: out/* }
+
+  android-lite:
+    name: Android Lite (old TVs, old Firesticks)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: 17 }
+      - name: Install
+        run: |
+          cd $APP
+          npm install
+          npm install @capacitor/core@6 @capacitor/cli@6 @capacitor/android@6 @capacitor/app@6
+      - name: Build web
+        env:
+          SITE_URL: ${{ vars.SITE_URL }}
+          LITE: '1' # plain background, no small preview player, no blur → low memory
+        run: cd $APP && npm run build
+      - name: Android project
+        run: cd $APP && npx cap add android && npx cap sync android
+      - name: TV + Firestick + http streams
+        run: |
+          cd $APP
+          M=android/app/src/main/AndroidManifest.xml
+          sed -i 's|<application|<application android:usesCleartextTraffic="true" android:banner="@drawable/banner"|' $M
+          sed -i 's|<category android:name="android.intent.category.LAUNCHER" />|<category android:name="android.intent.category.LAUNCHER" />\n                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />|' $M
+          sed -i 's|<uses-permission android:name="android.permission.INTERNET" />|<uses-permission android:name="android.permission.INTERNET" />\n    <uses-feature android:name="android.hardware.touchscreen" android:required="false" />\n    <uses-feature android:name="android.software.leanback" android:required="false" />\n    <uses-feature android:name="android.hardware.faketouch" android:required="false" />|' $M
+          # phone app opens in landscape, like IBO Player / IPTV Smarters
+          sed -i 's|android:name=".MainActivity"|android:name=".MainActivity" android:screenOrientation="sensorLandscape"|' $M
+          # Native players: libVLC (plays Dolby AC3 / E-AC3 / DTS sound that the WebView can't) + ExoPlayer (Settings › Video engine)
+          cp platforms/android/java/*.java android/app/src/main/java/com/iptvplayer/app/
+          sed -i 's#</application>#    <activity android:name=".VlcActivity" android:theme="@style/AppTheme.NoActionBar" android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|keyboard|navigation|uiMode" android:screenOrientation="sensorLandscape" android:exported="false" />\n    <activity android:name=".ExoActivity" android:theme="@style/AppTheme.NoActionBar" android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|keyboard|navigation|uiMode" android:screenOrientation="sensorLandscape" android:exported="false" />\n    </application>#' $M
+          printf "\ndependencies {\n    implementation 'org.videolan.android:libvlc-all:3.6.0'\n    implementation 'androidx.media3:media3-exoplayer:1.4.1'\n    implementation 'androidx.media3:media3-exoplayer-hls:1.4.1'\n    implementation 'androidx.media3:media3-ui:1.4.1'\n}\nandroid {\n    defaultConfig {\n        applicationId 'com.iptvplayer.app.lite'\n    ndk { abiFilters 'armeabi-v7a' }\n    }\n    packagingOptions {\n        jniLibs { useLegacyPackaging true }\n    }\n}\n" >> android/app/build.gradle
+          tail -15 android/app/build.gradle
+          mkdir -p android/app/src/main/res/drawable
+          cp platforms/android/banner.png android/app/src/main/res/drawable/banner.png
+          # app icon (rounded) for the phone / TV home screen
+          rm -rf android/app/src/main/res/mipmap-anydpi-v26 && cp -r platforms/android/res/. android/app/src/main/res/
+          # Lite: 32-bit only (about half the size), own app id + name so it installs next to the normal app
+          sed -i 's|<string name="app_name">[^<]*</string>|<string name="app_name">IPTV PLAYER Lite</string>|; s|<string name="title_activity_main">[^<]*</string>|<string name="title_activity_main">IPTV PLAYER Lite</string>|' android/app/src/main/res/values/strings.xml
+          cat android/app/src/main/res/values/strings.xml
+          cat $M
+      - name: Build APK
+        run: cd $APP/android && chmod +x gradlew && ./gradlew assembleDebug --no-daemon
+      - run: mkdir -p out && cp $APP/android/app/build/outputs/apk/debug/app-debug.apk out/IPTV-PLAYER-Lite.apk
+      - uses: actions/upload-artifact@v4
+        with: { name: android-lite, path: out/* }
 
   play:
     name: Google Play version (AAB)
@@ -222,7 +272,7 @@ jobs:
 
   release:
     name: Publish to Releases › latest
-    needs: [web, android, play, desktop]
+    needs: [web, android, android-lite, play, desktop]
     if: ${{ !cancelled() && needs.android.result == 'success' }}
     runs-on: ubuntu-latest
     steps:
@@ -241,4 +291,4 @@ jobs:
             exit 0
           fi
           gh release delete latest -y --cleanup-tag || true
-          gh release create latest dist/* -t "IPTV PLAYER (all devices)" -n "Android phone/TV/Firestick: IPTV-PLAYER.apk · Windows: IPTV-PLAYER-Windows.exe · Mac: IPTV-PLAYER-Mac.dmg · Linux: IPTV-PLAYER-Linux.AppImage · LG TV: IPTV-PLAYER-LG-webOS.ipk · Samsung TV: IPTV-PLAYER-Samsung-Tizen.zip · Other TVs/browsers: IPTV-PLAYER-Web.zip"
+          gh release create latest dist/* -t "IPTV PLAYER (all devices)" -n "Android phone/TV/Firestick: IPTV-PLAYER.apk · Old TVs / old Firesticks: IPTV-PLAYER-Lite.apk · Windows: IPTV-PLAYER-Windows.exe · Mac: IPTV-PLAYER-Mac.dmg · Linux: IPTV-PLAYER-Linux.AppImage · LG TV: IPTV-PLAYER-LG-webOS.ipk · Samsung TV: IPTV-PLAYER-Samsung-Tizen.zip · Other TVs/browsers: IPTV-PLAYER-Web.zip"

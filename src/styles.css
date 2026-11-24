@@ -3366,3 +3366,18 @@ html.tv .vod-cards .poster {
     width: calc(50% - 5px);
   }
 }
+
+/* ═══════════ LITE version (old TVs / old Firesticks): plain background, no blur, no animations → low memory ═══════════ */
+html.lite body,
+html.lite[data-theme='dark'] body {
+  background: #0a0c2a !important;
+}
+html.lite *,
+html.lite *::before,
+html.lite *::after {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+  animation: none !important;
+  transition: none !important;
+  box-shadow: none !important;
+}
