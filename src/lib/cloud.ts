@@ -2,7 +2,7 @@
 import { SITE_URL } from '../config'
 import { deviceId, read, write } from './settings'
 import type { Playlist } from './types'
-import { PLAY } from './flavor'
+import { LITE, PLAY } from './flavor'
 import { gpOwned } from './billing'
 
 export function deviceKey(): string {
@@ -47,7 +47,7 @@ async function call(path: string, init?: RequestInit) {
 let registered = false
 export async function registerDevice() {
   if (registered) return
-  await call('/api/device/register', { method: 'POST', body: JSON.stringify({ id: deviceId(), key: deviceKey(), platform: platform() + (PLAY ? ' (Google Play)' : ''), version: PLAY ? (gpOwned() ? '1.2.0 Play · Lifetime paid' : '1.2.0 Play') : '1.1.0' }) })
+  await call('/api/device/register', { method: 'POST', body: JSON.stringify({ id: deviceId(), key: deviceKey(), platform: platform() + (PLAY ? ' (Google Play)' : LITE ? ' (Lite)' : ''), version: PLAY ? (gpOwned() ? '1.2.0 Play · Lifetime paid' : '1.2.0 Play') : '1.1.0' }) })
   registered = true
 }
 

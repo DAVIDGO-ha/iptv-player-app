@@ -8,6 +8,7 @@ import { initCountryBackground } from './lib/bgflag'
 import { initDeviceId } from './lib/settings'
 import { initI18n } from './lib/i18n'
 import { refreshRoutes } from './lib/net'
+import { LITE } from './lib/flavor'
 
 // Samsung Tizen: register remote media / colour keys
 try {
@@ -58,6 +59,8 @@ Promise.race([initDeviceId(), new Promise((r) => setTimeout(r, 1500))]).finally(
 initI18n() // French / German / Spanish interface
 refreshRoutes().catch(() => {}) // keep anti-block addresses up to date
 
-initCountryBackground() // UK flag for the UK, German flag for Germany
+// Lite version (old TVs): plain colour background, nothing repainted
+if (LITE) document.documentElement.classList.add('lite')
+else initCountryBackground() // UK flag for the UK, German flag for Germany
 
 if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('./sw.js').catch(() => {})

@@ -13,6 +13,7 @@ import { canPro, hasNativePro } from '../lib/pro'
 import { COUNTRIES } from '../lib/bgflag'
 import { LANGS } from '../lib/i18n'
 import { BgPicker } from './BgPicker'
+import { LITE } from '../lib/flavor'
 
 const ACCENTS = ['#FF2D3A', '#0A84FF', '#5E5CE6', '#BF5AF2', '#FF375F', '#FF9F0A', '#30D158', '#FFFFFF']
 export const VERSION = '1.0.0'
@@ -117,6 +118,7 @@ export function Settings() {
       </Group>
 
       <Group title="Country">
+        {!LITE && (
         <Row icon="tv" label="Background flag" sub="The flag in the background picture (Auto = your country)">
           <select className="select" value={s.region || 'auto'} onChange={(e) => set({ region: e.target.value })}>
             <option value="auto">Auto</option>
@@ -127,8 +129,9 @@ export function Settings() {
             ))}
           </select>
         </Row>
-        <Row icon="star" label="Background" sub="Picture or colour behind the app" />
-        <BgPicker defaultStyle={{ backgroundImage: 'url(./bg/room-sm.jpg)' }} />
+        )}
+        {!LITE && <Row icon="star" label="Background" sub="Picture or colour behind the app" />}
+        {!LITE && <BgPicker defaultStyle={{ backgroundImage: 'url(./bg/room-sm.jpg)' }} />}
       </Group>
 
       <Group title="Player">
