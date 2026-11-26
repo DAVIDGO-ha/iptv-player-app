@@ -67,6 +67,7 @@ public class ExoActivity extends Activity {
         view = new PlayerView(this);
         view.setShowBuffering(PlayerView.SHOW_BUFFERING_ALWAYS);
         view.setKeepScreenOn(true);
+        view.setShowSubtitleButton(true); // CC button in the bar: choose the video's subtitles (or off)
         if (live) { // a live channel has nothing to seek
             view.setShowFastForwardButton(false);
             view.setShowRewindButton(false);
@@ -174,6 +175,12 @@ public class ExoActivity extends Activity {
                 case KeyEvent.KEYCODE_BACK:
                     if (bar) view.hideController();
                     else finishWithPos();
+                    return true;
+                case KeyEvent.KEYCODE_MENU:
+                case KeyEvent.KEYCODE_SETTINGS:
+                case KeyEvent.KEYCODE_INFO:
+                case KeyEvent.KEYCODE_CAPTIONS:
+                    view.showController(); // the bar has the subtitles (CC) and sound (gear) buttons
                     return true;
                 case KeyEvent.KEYCODE_CHANNEL_UP:
                 case KeyEvent.KEYCODE_PAGE_UP:
