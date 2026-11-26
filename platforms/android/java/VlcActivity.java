@@ -50,6 +50,7 @@ public class VlcActivity extends Activity {
     private SeekBar seekBar;
     private TextView tPos, tDur;
     private boolean dragging = false;
+    private boolean okLong = false;
     private final Runnable hideBar = () -> { if (bar != null && !dragging) bar.setVisibility(View.GONE); };
 
     @Override
@@ -71,6 +72,8 @@ public class VlcActivity extends Activity {
         root.addView(info, new FrameLayout.LayoutParams(-1, -2, Gravity.TOP));
         // first tap shows the bar, a tap while it is shown pauses / plays
         root.setOnClickListener(v -> { if (bar.getVisibility() == View.VISIBLE) togglePause(); showBar(); });
+        // long tap / hold OK: Sound / Subtitles
+        root.setOnLongClickListener(v -> { trackMenu(); return true; });
 
         Intent i = getIntent();
         start = i.getLongExtra("start", 0);
@@ -289,7 +292,7 @@ public class VlcActivity extends Activity {
 
     private void togglePause() {
         if (mp == null) return;
-        if (mp.isPlaying()) { mp.pause(); show("Paused"); } else { mp.play(); show("Playing"); }
+        if (mp.isPlaying()) { mp.pause(); show("Paused  ·  hold OK for sound & subtitles"); } else { mp.play(); show("Playing"); }
     }
 
     private void seek(long ms) {
@@ -310,6 +313,16 @@ public class VlcActivity extends Activity {
         switch (k) {
             case KeyEvent.KEYCODE_DPAD_CENTER:
             case KeyEvent.KEYCODE_ENTER:
+            case KeyEvent.KEYCODE_NUMPAD_ENTER:
+                // short press = pause / play (on key up), hold = Sound / Subtitles (most TV remotes have no MENU key)
+                if (e.getRepeatCount() == 0) { okLong = false; e.startTracking(); }
+                return true;
+            case KeyEvent.KEYCODE_CAPTIONS:
+                pickTrack(false);
+                return true;
+            case KeyEvent.KEYCODE_MEDIA_AUDIO_TRACK:
+                pickTrack(true);
+                return true;
             case KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE:
             case KeyEvent.KEYCODE_SPACE:
                 togglePause();
@@ -339,15 +352,47 @@ public class VlcActivity extends Activity {
                 zap(-1);
                 return true;
             case KeyEvent.KEYCODE_MENU:
-                new android.app.AlertDialog.Builder(this)
-                    .setItems(new String[] { "Sound", "Subtitles" }, (d, w) -> pickTrack(w == 0))
-                    .show();
+            case KeyEvent.KEYCODE_SETTINGS:
+            case KeyEvent.KEYCODE_INFO:
+                trackMenu();
                 return true;
             case KeyEvent.KEYCODE_BACK:
                 finishWithPos();
                 return true;
         }
         return super.onKeyDown(k, e);
+    }
+
+    private static boolean isOk(int k) {
+        return k == KeyEvent.KEYCODE_DPAD_CENTER || k == KeyEvent.KEYCODE_ENTER || k == KeyEvent.KEYCODE_NUMPAD_ENTER;
+    }
+
+    @Override
+    public boolean onKeyLongPress(int k, KeyEvent e) {
+        if (isOk(k)) {
+            okLong = true;
+            trackMenu();
+            return true;
+        }
+        return super.onKeyLongPress(k, e);
+    }
+
+    @Override
+    public boolean onKeyUp(int k, KeyEvent e) {
+        if (isOk(k)) {
+            if (okLong) okLong = false;
+            else if (!e.isCanceled()) togglePause();
+            return true;
+        }
+        return super.onKeyUp(k, e);
+    }
+
+    // Sound / Subtitles menu: MENU key, or hold OK on remotes without a MENU key
+    private void trackMenu() {
+        h.removeCallbacks(hideBar);
+        new android.app.AlertDialog.Builder(this)
+            .setItems(new String[] { "Sound", "Subtitles" }, (d, w) -> pickTrack(w == 0))
+            .show();
     }
 
     private void finishWithPos() {

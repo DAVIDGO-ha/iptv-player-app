@@ -350,16 +350,33 @@ function PlayerView({ req }: { req: PlayRequest }) {
   })
 
   // ——— External subtitles ———
-  const loadSub = (f: File) => {
-    f.text().then((txt) => {
-      const url = URL.createObjectURL(new Blob([srtToVtt(txt)], { type: 'text/vtt' }))
-      setExtSub(url)
-      setMenu(null)
-      setTimeout(() => {
-        const v = video.current!
-        for (let i = 0; i < v.textTracks.length; i++) v.textTracks[i].mode = v.textTracks[i].label === f.name ? 'showing' : 'disabled'
-      }, 200)
-    })
+  const loadSub = async (f: File) => {
+    // .srt files are often not UTF-8 (Windows-1252 from older subtitle sites) → read the bytes and choose the right one
+    const buf = await f.arrayBuffer()
+    let txt = ''
+    try {
+      txt = new TextDecoder('utf-8', { fatal: true }).decode(buf)
+    } catch {
+      txt = new TextDecoder('windows-1252').decode(buf)
+    }
+    if (extSub) URL.revokeObjectURL(extSub)
+    const url = URL.createObjectURL(new Blob([srtToVtt(txt)], { type: 'text/vtt' }))
+    engine?.setSubs(-1) // the video's own subtitles off, the file is shown instead
+    setExtSub(url)
+    setMenu(null)
+    // show the loaded file (the <track> appears a moment after React adds it)
+    const showExt = (n: number) => {
+      const v = video.current
+      if (!v) return
+      let found = false
+      for (let i = 0; i < v.textTracks.length; i++) {
+        const ext = v.textTracks[i].label === 'External'
+        if (ext) found = true
+        v.textTracks[i].mode = ext ? 'showing' : 'disabled'
+      }
+      if (!found && n > 0) setTimeout(() => showExt(n - 1), 150)
+    }
+    setTimeout(() => showExt(10), 100)
   }
 
   const audio = useMemo(() => engine?.audio() || { list: [], current: -1 }, [engine, tracksTick, menu])
@@ -384,7 +401,7 @@ function PlayerView({ req }: { req: PlayRequest }) {
     >
       <div className="p-stage" onClick={() => (menu ? setMenu(null) : ui ? toggle() : poke())} onDoubleClick={fullscreen}>
         <video ref={video} className={'p-video ar-' + aspect.replace(':', '')} playsInline autoPlay>
-          {extSub && <track kind="subtitles" src={extSub} label="External" default />}
+          {extSub && <track key={extSub} kind="subtitles" src={extSub} label="External" default />}
         </video>
       </div>
 

@@ -170,6 +170,8 @@ export async function attachEngine(
       },
       setSubs: (id) => {
         if ((hls.subtitleTracks || []).length) {
+          // a loaded subtitle file must not stay on top of the chosen track (or after "Off")
+          for (let i = 0; i < v.textTracks.length; i++) if (v.textTracks[i].label === 'External') v.textTracks[i].mode = 'disabled'
           hls.subtitleTrack = id
           hls.subtitleDisplay = id >= 0
         } else base.setSubs(id)
@@ -226,6 +228,19 @@ export async function attachEngine(
 
 // SRT → WebVTT for external subtitle files
 export function srtToVtt(srt: string) {
-  if (/^WEBVTT/.test(srt.trim())) return srt
-  return 'WEBVTT\n\n' + srt.replace(/\r/g, '').replace(/(\d{2}:\d{2}:\d{2}),(\d{3})/g, '$1.$2')
+  srt = srt.replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n')
+  if (/^WEBVTT/.test(srt.trim())) return srt.trim() + '\n'
+  // 00:01:02,345 → 00:01:02.345 (also 1:02:03,4 and times without hours written by some tools)
+  const fix = (h: string | undefined, m: string, s: string, ms: string) =>
+    `${(h || '00').padStart(2, '0')}:${m.padStart(2, '0')}:${s.padStart(2, '0')}.${(ms + '00').slice(0, 3)}`
+  const time = /(?:(\d{1,2}):)?(\d{1,2}):(\d{1,2})[,.](\d{1,3})/
+  const line = new RegExp(`^\\s*${time.source}\\s*-->\\s*${time.source}.*$`, 'gm')
+  return (
+    'WEBVTT\n\n' +
+    srt
+      .replace(line, (_m, h1, m1, s1, x1, h2, m2, s2, x2) => `${fix(h1, m1, s1, x1)} --> ${fix(h2, m2, s2, x2)}`)
+      .replace(/\{\\an?\d+\}/g, '') // position tags the browser would print as text
+      .trim() +
+    '\n'
+  )
 }
