@@ -51,6 +51,8 @@ public class VlcActivity extends Activity {
     private TextView tPos, tDur;
     private boolean dragging = false;
     private boolean okLong = false;
+    private static final int SPU_NONE = Integer.MIN_VALUE;
+    private int spuWant = SPU_NONE; // subtitle chosen by the viewer: put back after a reconnect / video-mode switch
     private final Runnable hideBar = () -> { if (bar != null && !dragging) bar.setVisibility(View.GONE); };
 
     @Override
@@ -140,6 +142,7 @@ public class VlcActivity extends Activity {
                     goodAt = System.currentTimeMillis();
                     if (start > 0 && !live) { mp.setTime(start); start = 0; }
                     if (!checkPosted) { checkPosted = true; h.postDelayed(this::checkPicture, 6000); }
+                    if (spuWant != SPU_NONE) h.postDelayed(this::restoreSpu, 2500);
                     break;
                 case MediaPlayer.Event.Vout:
                     if (e.getVoutCount() > 0) gotVideo = true;
@@ -200,6 +203,7 @@ public class VlcActivity extends Activity {
         gotVideo = false;
         softMode = false;
         checkPosted = false;
+        spuWant = SPU_NONE; // another channel / episode has its own subtitles
         start = 0;
         spin.setVisibility(View.VISIBLE);
         show(titles != null && index < titles.length ? titles[index] : "");
@@ -283,11 +287,21 @@ public class VlcActivity extends Activity {
             .setSingleChoiceItems(names, sel, (d, w) -> {
                 if (mp != null) {
                     if (audio) mp.setAudioTrack(ts[w].id);
-                    else mp.setSpuTrack(ts[w].id);
+                    else { spuWant = ts[w].id; mp.setSpuTrack(ts[w].id); }
                 }
                 d.dismiss();
             })
             .show();
+    }
+
+    // The stream was opened again (live reconnect, compatible video mode) → the chosen subtitle is selected again
+    private void restoreSpu() {
+        if (mp == null || spuWant == SPU_NONE || mp.getSpuTrack() == spuWant) return;
+        MediaPlayer.TrackDescription[] ts = mp.getSpuTracks();
+        if (ts == null) return;
+        for (MediaPlayer.TrackDescription t : ts) {
+            if (t.id == spuWant) { mp.setSpuTrack(spuWant); return; }
+        }
     }
 
     private void togglePause() {
@@ -414,7 +428,9 @@ public class VlcActivity extends Activity {
     @Override
     protected void onStart() {
         super.onStart();
-        mp.attachViews(layout, null, false, false);
+        // 3rd value = subtitles layer ON. With it off, VLC lists the subtitles but never draws them
+        // (hardware decoding puts the picture straight on the screen, so subtitles need their own layer).
+        mp.attachViews(layout, null, true, false);
         mp.play();
     }
 
